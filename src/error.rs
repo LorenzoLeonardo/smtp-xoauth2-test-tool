@@ -40,6 +40,7 @@ pub enum ErrorCodes {
     NoToken,
     RequestError,
     ParseError,
+    InvalidParameters,
     OtherError,
 }
 

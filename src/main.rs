@@ -19,6 +19,7 @@ use strum_macros::EnumString;
 // My crates
 use crate::auth_code_grant::auth_code_grant;
 use crate::device_code_flow::device_code_flow;
+use crate::error::{ErrorCodes, OAuth2Error};
 use crate::provider::Provider;
 use error::OAuth2Result;
 use token_keeper::TokenKeeper;
@@ -39,9 +40,24 @@ fn init_logger(level: &str) {
     env_logger::Builder::from_env(Env::default().default_filter_or(level)).init();
 }
 
+fn check_args(args: &Vec<String>) -> OAuth2Result<()> {
+    if args.len() != 10 {
+        eprintln!("How to use this tool?\n");
+        eprintln!("Execute: cargo run <provider> <access token grant type> <client secret> <client id> <sender email address> <sender name> <recipient email> <recipient name> <debug log level>");
+        Err(OAuth2Error::new(
+            ErrorCodes::InvalidParameters,
+            String::from("Invalid args"),
+        ))
+    } else {
+        Ok(())
+    }
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> OAuth2Result<()> {
     let args: Vec<String> = env::args().collect();
+    check_args(&args)?;
+
     let provider_directory = std::env::current_exe()?
         .parent()
         .unwrap()
@@ -51,9 +67,7 @@ async fn main() -> OAuth2Result<()> {
         .unwrap()
         .to_path_buf();
     let provider_directory = provider_directory.join(PathBuf::from("endpoints"));
-
     let provider = Provider::read(&provider_directory, &PathBuf::from(args[1].to_string()))?;
-    eprintln!("Provider: {:?}", provider);
     let client_secret = match args[3].as_str() {
         "None" => None,
         _ => Some(ClientSecret::new(args[3].to_string())),
