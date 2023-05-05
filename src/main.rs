@@ -143,7 +143,8 @@ async fn main() -> OAuth2Result<()> {
         .html_body("<h1>Hello, world!</h1>")
         .text_body("Hello world!");
 
-    let credentials = Credentials::new(sender_email.as_ref(), access_token.secret().as_str());
+    let credentials =
+        Credentials::new_xoauth2(sender_email.as_ref(), access_token.secret().as_str());
     log::info!("Authenticating SMTP XOAUTH2 Credentials....");
     let email_connect =
         SmtpClientBuilder::new(provider.smtp_server.0.as_ref(), provider.smtp_server_port.0)
@@ -157,7 +158,9 @@ async fn main() -> OAuth2Result<()> {
             log::info!("Sending SMTP XOAUTH2 Email....");
             let send = result.send(message).await;
             match send {
-                Ok(_result) => {}
+                Ok(_result) => {
+                    log::info!("Sending Email success!!");
+                }
                 Err(err) => {
                     log::error!("SMTP Sending Error: {err:?}");
                 }

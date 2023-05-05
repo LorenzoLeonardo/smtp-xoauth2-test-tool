@@ -2,7 +2,7 @@
     "authorization_endpoint":"https://login.microsoftonline.com/common/oauth2/v2.0/authorize",
     "token_endpoint":"https://login.microsoftonline.com/common/oauth2/v2.0/token",
     "device_auth_endpoint":"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode",
-    "scopes":["offline_access","SMTP.Send"],
+    "scopes":["offline_access","https://outlook.office.com/SMTP.Send"],
     "smtp_server":"smtp.office365.com",
     "smtp_server_port":587
 }
