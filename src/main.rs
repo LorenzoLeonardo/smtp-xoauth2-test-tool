@@ -27,8 +27,8 @@ use token_keeper::TokenKeeper;
 enum ParamIndex {
     Provider = 1,
     TokenGrantType,
-    ClientSecret,
     ClientId,
+    ClientSecret,
     SenderEmail,
     SenderName,
     RecipientEmail,
@@ -55,7 +55,7 @@ fn init_logger(level: &str) -> OAuth2Result<()> {
 fn check_args(args: &[String]) -> OAuth2Result<()> {
     if args.len() != 10 {
         eprintln!("How to use this tool?\n");
-        eprintln!("Execute: cargo run <provider> <access token grant type> <client secret> <client id> <sender email address> <sender name> <recipient email> <recipient name> <debug log level>");
+        eprintln!("Execute: cargo run <provider> <access token grant type> <client id> <client secret> <sender email address> <sender name> <recipient email> <recipient name> <debug log level>");
         Err(OAuth2Error::new(
             ErrorCodes::InvalidParameters,
             String::from("Lacking parameters"),
