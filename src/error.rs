@@ -2,6 +2,7 @@
 use std::fmt::Debug;
 use std::{error::Error, str::FromStr};
 
+use log::SetLoggerError;
 // 3rd party crates
 use oauth2::{
     url, ConfigurationError, ErrorResponseType, RequestTokenError, StandardErrorResponse,
@@ -41,6 +42,7 @@ pub enum ErrorCodes {
     RequestError,
     ParseError,
     InvalidParameters,
+    LoggerError,
     OtherError,
 }
 
@@ -116,6 +118,12 @@ impl From<serde_json::Error> for OAuth2Error {
 impl From<std::io::Error> for OAuth2Error {
     fn from(e: std::io::Error) -> Self {
         OAuth2Error::new(ErrorCodes::IoError, e.to_string())
+    }
+}
+
+impl From<SetLoggerError> for OAuth2Error {
+    fn from(e: SetLoggerError) -> Self {
+        OAuth2Error::new(ErrorCodes::LoggerError, e.to_string())
     }
 }
 

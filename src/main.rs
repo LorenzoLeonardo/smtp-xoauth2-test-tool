@@ -24,6 +24,18 @@ use crate::provider::Provider;
 use error::OAuth2Result;
 use token_keeper::TokenKeeper;
 
+enum ParamIndex {
+    Provider = 1,
+    TokenGrantType,
+    ClientSecret,
+    ClientId,
+    SenderEmail,
+    SenderName,
+    RecipientEmail,
+    RecipientName,
+    DebugLevel,
+}
+
 #[derive(EnumString)]
 enum OAuth2TokenGrantFlow {
     AuthorizationCodeGrant,
@@ -36,28 +48,24 @@ impl From<String> for OAuth2TokenGrantFlow {
     }
 }
 
-fn init_logger(level: &str) {
-    env_logger::Builder::from_env(Env::default().default_filter_or(level)).init();
+fn init_logger(level: &str) -> OAuth2Result<()> {
+    Ok(env_logger::Builder::from_env(Env::default().default_filter_or(level)).try_init()?)
 }
 
-fn check_args(args: &Vec<String>) -> OAuth2Result<()> {
+fn check_args(args: &[String]) -> OAuth2Result<()> {
     if args.len() != 10 {
         eprintln!("How to use this tool?\n");
         eprintln!("Execute: cargo run <provider> <access token grant type> <client secret> <client id> <sender email address> <sender name> <recipient email> <recipient name> <debug log level>");
         Err(OAuth2Error::new(
             ErrorCodes::InvalidParameters,
-            String::from("Invalid args"),
+            String::from("Lacking parameters"),
         ))
     } else {
         Ok(())
     }
 }
 
-#[tokio::main(flavor = "current_thread")]
-async fn main() -> OAuth2Result<()> {
-    let args: Vec<String> = env::args().collect();
-    check_args(&args)?;
-
+fn get_provider(args: &[String]) -> OAuth2Result<Provider> {
     let provider_directory = std::env::current_exe()?
         .parent()
         .unwrap()
@@ -67,42 +75,65 @@ async fn main() -> OAuth2Result<()> {
         .unwrap()
         .to_path_buf();
     let provider_directory = provider_directory.join(PathBuf::from("endpoints"));
-    let provider = Provider::read(&provider_directory, &PathBuf::from(args[1].to_string()))?;
-    let client_secret = match args[3].as_str() {
-        "None" => None,
-        _ => Some(ClientSecret::new(args[3].to_string())),
-    };
-    let client_id = &args[4];
-    let sender_email = &args[5];
-    let sender_name = &args[6];
-    let receiver_email = &args[7];
-    let receiver_name = &args[8];
-    init_logger(args[9].as_str());
+    let provider = Provider::read(
+        &provider_directory,
+        &PathBuf::from(args[ParamIndex::Provider as usize].to_string()),
+    );
+    match provider {
+        Ok(provider) => Ok(provider),
+        Err(_err) => {
+            let provider = Provider::read(
+                &PathBuf::from("endpoints"),
+                &PathBuf::from(args[ParamIndex::Provider as usize].to_string()),
+            )?;
+            Ok(provider)
+        }
+    }
+}
 
-    let access_token = match OAuth2TokenGrantFlow::from(args[2].to_string()) {
-        OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
-            auth_code_grant(
-                client_id,
-                client_secret,
-                sender_email,
-                provider.authorization_endpoint,
-                provider.token_endpoint,
-                provider.scopes,
-            )
-            .await?
-        }
-        OAuth2TokenGrantFlow::DeviceCodeFlow => {
-            device_code_flow(
-                client_id,
-                client_secret,
-                sender_email,
-                provider.device_auth_endpoint,
-                provider.token_endpoint,
-                provider.scopes,
-            )
-            .await?
-        }
+#[tokio::main(flavor = "current_thread")]
+async fn main() -> OAuth2Result<()> {
+    let args: Vec<String> = env::args().collect();
+    check_args(&args)?;
+    let provider: Provider = get_provider(&args)?;
+    let client_secret = match args[ParamIndex::ClientSecret as usize].as_str() {
+        "None" => None,
+        _ => Some(ClientSecret::new(
+            args[ParamIndex::ClientSecret as usize].to_string(),
+        )),
     };
+    let client_id = &args[ParamIndex::ClientId as usize];
+    let sender_email = &args[ParamIndex::SenderEmail as usize];
+    let sender_name = &args[ParamIndex::SenderName as usize];
+    let receiver_email = &args[ParamIndex::RecipientEmail as usize];
+    let receiver_name = &args[ParamIndex::RecipientName as usize];
+    init_logger(args[ParamIndex::DebugLevel as usize].as_str())?;
+
+    let access_token =
+        match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string()) {
+            OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
+                auth_code_grant(
+                    client_id,
+                    client_secret,
+                    sender_email,
+                    provider.authorization_endpoint,
+                    provider.token_endpoint,
+                    provider.scopes,
+                )
+                .await?
+            }
+            OAuth2TokenGrantFlow::DeviceCodeFlow => {
+                device_code_flow(
+                    client_id,
+                    client_secret,
+                    sender_email,
+                    provider.device_auth_endpoint,
+                    provider.token_endpoint,
+                    provider.scopes,
+                )
+                .await?
+            }
+        };
 
     // Start of sending Email
     let message = MessageBuilder::new()
