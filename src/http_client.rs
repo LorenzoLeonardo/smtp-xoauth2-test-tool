@@ -22,6 +22,9 @@ pub enum Error {
     /// Non-curl HTTP error.
     #[error("HTTP error")]
     Http(#[source] http::Error),
+    /// Error returned by curl crate.
+    #[error("async curl request failed")]
+    AsyncCurl(#[source] async_curl::async_curl_error::AsyncCurlError),
     /// Other error.
     #[error("Other error: {}", _0)]
     Other(String),
@@ -113,7 +116,7 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
 
     let mut easy = curl.send_request(easy).await.map_err(|e| {
         log::error!("{:?}", e);
-        Error::Other(format!("{:?}", e))
+        Error::AsyncCurl(e)
     })?;
 
     let data = easy.get_ref().to_owned().get_data();
