@@ -1,9 +1,10 @@
 // Standard libraries
 use std::fmt;
-use std::io::Read;
 
 // 3rd party crates
-use curl::easy::Easy;
+use async_curl::async_curl::AsyncCurl;
+use async_curl::response_handler::ResponseHandler;
+use curl::easy::Easy2;
 use http::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
 use http::method::Method;
 use http::status::StatusCode;
@@ -62,7 +63,9 @@ impl fmt::Display for DebugHttpRequest {
 ///
 pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Error> {
     log::debug!("{}", DebugHttpRequest::from(&request));
-    let mut easy = Easy::new();
+    let curl = AsyncCurl::new();
+    let mut easy = Easy2::new(ResponseHandler::new());
+
     easy.url(&request.url.to_string()[..]).map_err(|e| {
         log::error!("{:?}", e);
         Error::Curl(e)
@@ -102,34 +105,18 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
         assert_eq!(request.method, Method::GET);
     }
 
-    let mut form_slice = &request.body[..];
-    let mut data = Vec::new();
-    {
-        let mut transfer = easy.transfer();
+    let form_slice = &request.body[..];
+    easy.post_fields_copy(form_slice).map_err(|e| {
+        log::error!("{:?}", e);
+        Error::Curl(e)
+    })?;
 
-        transfer
-            .read_function(|buf| Ok(form_slice.read(buf).unwrap_or(0)))
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                Error::Curl(e)
-            })?;
+    let mut easy = curl.send_request(easy).await.map_err(|e| {
+        log::error!("{:?}", e);
+        Error::Other(format!("{:?}", e))
+    })?;
 
-        transfer
-            .write_function(|new_data| {
-                data.extend_from_slice(new_data);
-                Ok(new_data.len())
-            })
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                Error::Curl(e)
-            })?;
-
-        transfer.perform().map_err(|e| {
-            log::error!("{:?}", e);
-            Error::Curl(e)
-        })?;
-    }
-
+    let data = easy.get_ref().to_owned().get_data();
     let status_code = easy.response_code().map_err(|e| {
         log::error!("{:?}", e);
         Error::Curl(e)
