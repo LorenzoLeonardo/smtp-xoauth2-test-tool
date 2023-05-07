@@ -96,6 +96,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         let mut token_keeper = TokenKeeper::from(token_res);
         token_keeper.set_directory(file_directory.to_path_buf());
         token_keeper.save(file_name)?;
+        log::info!("Access token successfuly retrieved from the endpoint.");
         Ok(token_keeper)
     }
 
@@ -213,7 +214,7 @@ pub async fn auth_code_grant(
         let (authorize_url, _csrf_state) =
             auth_code_grant.generate_authorization_url(scopes).await?;
         log::info!(
-            "Open this URL in your browser:\n{}\n",
+            "Open this URL in your browser: {}",
             authorize_url.to_string()
         );
 
