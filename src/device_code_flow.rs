@@ -71,7 +71,9 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         scopes: Vec<Scope>,
         async_http_callback: T,
     ) -> OAuth2Result<StandardDeviceAuthorizationResponse> {
-        log::info!("There is no Access token, please login.");
+        log::info!(
+            "There is no Access token, please login via browser with this link and input the code."
+        );
         let client = self
             .create_client()?
             .set_device_authorization_url(self.device_auth_endpoint.to_owned());
@@ -218,8 +220,11 @@ pub async fn device_code_flow(
             .await?;
 
         log::info!(
-            "Open this URL in your browser:\n{}\nand enter the code: {}\n\n",
+            "Login Here: {}",
             &device_auth_response.verification_uri().as_str(),
+        );
+        log::info!(
+            "Device Code: {}",
             &device_auth_response.user_code().secret()
         );
 
