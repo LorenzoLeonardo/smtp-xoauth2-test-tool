@@ -43,9 +43,11 @@ enum OAuth2TokenGrantFlow {
     DeviceCodeFlow,
 }
 
-impl From<String> for OAuth2TokenGrantFlow {
-    fn from(str: String) -> Self {
-        OAuth2TokenGrantFlow::from_str(str.as_str()).unwrap()
+impl OAuth2TokenGrantFlow {
+    pub fn from(str: String) -> OAuth2Result<Self> {
+        OAuth2TokenGrantFlow::from_str(str.as_str()).map_err(|e| {
+            OAuth2Error::new(ErrorCodes::ParseError, format!("{} ({})", e, str.as_str()))
+        })
     }
 }
 
@@ -111,7 +113,7 @@ async fn main() -> OAuth2Result<()> {
     init_logger(args[ParamIndex::DebugLevel as usize].as_str())?;
 
     let access_token =
-        match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string()) {
+        match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
                 auth_code_grant(
                     client_id,
