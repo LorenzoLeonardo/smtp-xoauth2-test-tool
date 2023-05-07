@@ -5,10 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::OAuth2Result;
 
-#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash, Default)]
 pub struct SmtpHostName(pub String);
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Default)]
 pub struct SmtpPort(pub u16);
 
 #[derive(Serialize, Deserialize, Debug)]
