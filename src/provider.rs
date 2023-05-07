@@ -24,9 +24,7 @@ pub struct Provider {
 impl Provider {
     pub fn read(directory: &Path, file_name: &PathBuf) -> OAuth2Result<Self> {
         let input_path = directory.join(file_name);
-        eprintln!("Fullpath: {}", &input_path.to_string_lossy());
         let text = std::fs::read_to_string(input_path)?;
-
         Ok(serde_json::from_str::<Self>(&text)?)
     }
 }

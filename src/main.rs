@@ -71,11 +71,20 @@ fn check_args(args: &[String]) -> OAuth2Result<()> {
 fn get_provider(args: &[String]) -> OAuth2Result<Provider> {
     let provider_directory = std::env::current_exe()?
         .parent()
-        .unwrap()
+        .ok_or(OAuth2Error::new(
+            ErrorCodes::DirectoryError,
+            "No valid directory".to_string(),
+        ))?
         .parent()
-        .unwrap()
+        .ok_or(OAuth2Error::new(
+            ErrorCodes::DirectoryError,
+            "No valid directory".to_string(),
+        ))?
         .parent()
-        .unwrap()
+        .ok_or(OAuth2Error::new(
+            ErrorCodes::DirectoryError,
+            "No valid directory".to_string(),
+        ))?
         .to_path_buf();
     let provider_directory = provider_directory.join(PathBuf::from("endpoints"));
     let provider = Provider::read(

@@ -136,7 +136,9 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                             let error = OAuth2Error::from(e);
                             if error.error_code == ErrorCodes::InvalidGrant {
                                 let file = TokenKeeper::new(file_directory.to_path_buf());
-                                file.delete(file_name).unwrap()
+                                if let Err(e) = file.delete(file_name) {
+                                    log::error!("{:?}", e);
+                                }
                             }
                             Err(error)
                         }
@@ -198,7 +200,10 @@ pub async fn auth_code_grant(
         token_url,
     );
 
-    let directory = UserDirs::new().unwrap();
+    let directory = UserDirs::new().ok_or(OAuth2Error::new(
+        ErrorCodes::DirectoryError,
+        "No valid directory".to_string(),
+    ))?;
     let mut directory = directory.home_dir().to_owned();
 
     directory = directory.join("token");
@@ -218,7 +223,7 @@ pub async fn auth_code_grant(
             authorize_url.to_string()
         );
 
-        let listener = TcpListener::bind("127.0.0.1:8080").unwrap();
+        let listener = TcpListener::bind("127.0.0.1:8080")?;
         if let Some(mut stream) = listener.incoming().flatten().next() {
             let code;
             let _state;
@@ -226,10 +231,17 @@ pub async fn auth_code_grant(
                 let mut reader = BufReader::new(&stream);
 
                 let mut request_line = String::new();
-                reader.read_line(&mut request_line).unwrap();
+                reader.read_line(&mut request_line)?;
 
-                let redirect_url = request_line.split_whitespace().nth(1).unwrap();
-                let url = Url::parse(&("http://localhost".to_string() + redirect_url)).unwrap();
+                let redirect_url =
+                    request_line
+                        .split_whitespace()
+                        .nth(1)
+                        .ok_or(OAuth2Error::new(
+                            ErrorCodes::UrlParseError,
+                            "No redirect URL found.".to_string(),
+                        ))?;
+                let url = Url::parse(&("http://localhost".to_string() + redirect_url))?;
 
                 let code_pair = url
                     .query_pairs()
@@ -237,7 +249,10 @@ pub async fn auth_code_grant(
                         let (key, _) = pair;
                         key == "code"
                     })
-                    .unwrap();
+                    .ok_or(OAuth2Error::new(
+                        ErrorCodes::UrlParseError,
+                        "No code was found in the redirect URL".to_string(),
+                    ))?;
 
                 let (_, value) = code_pair;
                 code = AuthorizationCode::new(value.into_owned());
@@ -248,7 +263,10 @@ pub async fn auth_code_grant(
                         let (key, _) = pair;
                         key == "state"
                     })
-                    .unwrap();
+                    .ok_or(OAuth2Error::new(
+                        ErrorCodes::UrlParseError,
+                        "No state was found in the redirect URL".to_string(),
+                    ))?;
 
                 let (_, value) = state_pair;
                 _state = CsrfToken::new(value.into_owned());
@@ -260,7 +278,7 @@ pub async fn auth_code_grant(
                 message.len(),
                 message
             );
-            stream.write_all(response.as_bytes()).unwrap();
+            stream.write_all(response.as_bytes())?;
 
             // Exchange the code with a token.
             token_keeper = auth_code_grant

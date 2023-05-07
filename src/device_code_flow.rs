@@ -140,7 +140,9 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                             let error = OAuth2Error::from(e);
                             if error.error_code == ErrorCodes::InvalidGrant {
                                 let file = TokenKeeper::new(file_directory.to_path_buf());
-                                file.delete(file_name).unwrap()
+                                if let Err(e) = file.delete(file_name) {
+                                    log::error!("{:?}", e);
+                                }
                             }
                             Err(error)
                         }
@@ -202,7 +204,10 @@ pub async fn device_code_flow(
         token_endpoint,
     );
 
-    let directory = UserDirs::new().unwrap();
+    let directory = UserDirs::new().ok_or(OAuth2Error::new(
+        ErrorCodes::DirectoryError,
+        "No valid directory".to_string(),
+    ))?;
     let mut directory = directory.home_dir().to_owned();
 
     directory = directory.join("token");
