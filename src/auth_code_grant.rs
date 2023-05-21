@@ -188,7 +188,6 @@ impl AuthCodeGrant {
 pub async fn auth_code_grant(
     client_id: &str,
     client_secret: Option<ClientSecret>,
-    sender_email: &str,
     auth_url: AuthUrl,
     token_url: TokenUrl,
     scopes: Vec<Scope>,
@@ -208,10 +207,7 @@ pub async fn auth_code_grant(
 
     directory = directory.join("token");
 
-    let token_file = PathBuf::from(format!(
-        "{}_{}_auth_code_grant.json",
-        client_id, sender_email
-    ));
+    let token_file = PathBuf::from(format!("{}_auth_code_grant.json", client_id));
     let mut token_keeper = TokenKeeper::new(directory.to_path_buf());
 
     // If there is no exsting token, get it from the cloud
