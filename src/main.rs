@@ -2,10 +2,12 @@ mod auth_code_grant;
 mod device_code_flow;
 mod emailer;
 mod error;
+mod get_profile;
 mod http_client;
 mod provider;
 mod token_keeper;
 
+use core::panic;
 // Standard libraries
 use std::env;
 use std::path::PathBuf;
@@ -13,6 +15,7 @@ use std::str::FromStr;
 
 // 3rd party crates
 use env_logger::Env;
+use get_profile::{GoogleProfile, MicrosoftProfile};
 use oauth2::ClientSecret;
 use strum_macros::EnumString;
 
@@ -20,6 +23,7 @@ use strum_macros::EnumString;
 use crate::auth_code_grant::auth_code_grant;
 use crate::device_code_flow::device_code_flow;
 use crate::error::{ErrorCodes, OAuth2Error};
+use crate::get_profile::SenderProfile;
 use crate::provider::Provider;
 use emailer::Emailer;
 use error::OAuth2Result;
@@ -30,8 +34,6 @@ enum ParamIndex {
     TokenGrantType,
     ClientId,
     ClientSecret,
-    SenderEmail,
-    SenderName,
     RecipientEmail,
     RecipientName,
     DebugLevel,
@@ -56,9 +58,9 @@ fn init_logger(level: &str) -> OAuth2Result<()> {
 }
 
 fn check_args(args: &[String]) -> OAuth2Result<()> {
-    if args.len() != 10 {
+    if args.len() != 8 {
         eprintln!("How to use this tool?\n");
-        eprintln!("Execute: cargo run <provider> <access token grant type> <client id> <client secret> <sender email address> <sender name> <recipient email> <recipient name> <debug log level>");
+        eprintln!("Execute: cargo run <provider> <access token grant type> <client id> <client secret> <recipient email> <recipient name> <debug log level>");
         Err(OAuth2Error::new(
             ErrorCodes::InvalidParameters,
             String::from("Lacking parameters"),
@@ -115,8 +117,6 @@ async fn main() -> OAuth2Result<()> {
         )),
     };
     let client_id = &args[ParamIndex::ClientId as usize];
-    let sender_email = &args[ParamIndex::SenderEmail as usize];
-    let sender_name = &args[ParamIndex::SenderName as usize];
     let recipient_email = &args[ParamIndex::RecipientEmail as usize];
     let recipient_name = &args[ParamIndex::RecipientName as usize];
     init_logger(args[ParamIndex::DebugLevel as usize].as_str())?;
@@ -127,7 +127,6 @@ async fn main() -> OAuth2Result<()> {
                 auth_code_grant(
                     client_id,
                     client_secret,
-                    sender_email,
                     provider.authorization_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
@@ -138,7 +137,6 @@ async fn main() -> OAuth2Result<()> {
                 device_code_flow(
                     client_id,
                     client_secret,
-                    sender_email,
                     provider.device_auth_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
@@ -147,8 +145,14 @@ async fn main() -> OAuth2Result<()> {
             }
         };
 
+    let (sender_name, sender_email) = match args[ParamIndex::Provider as usize].as_str() {
+        "Microsoft" => MicrosoftProfile::get_sender_profile(&access_token).await?,
+        "Google" => GoogleProfile::get_sender_profile(&access_token).await?,
+        &_ => panic!("Wrong provider"),
+    };
+
     Emailer::new(provider.smtp_server, provider.smtp_server_port)
-        .set_sender(sender_name.into(), sender_email.into())
+        .set_sender(sender_name, sender_email)
         .add_recipient(recipient_name.into(), recipient_email.into())
         .send_email(access_token)
         .await

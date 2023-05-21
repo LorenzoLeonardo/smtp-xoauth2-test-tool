@@ -3,7 +3,7 @@ This is a test tool for SMTP XOAUTH2 email workflow
 
 How to use this tool
 
-cargo run \<provider\> \<access token grant type\> \<client id\> \<client secret\> \<sender email address\> \<sender name\> \<recipient email\> \<recipient name\> \<debug log level\>
+cargo run \<provider\> \<access token grant type\> \<client id\> \<client secret\> \<recipient email\> \<recipient name\> \<debug log level\>
 
 Notes:
 

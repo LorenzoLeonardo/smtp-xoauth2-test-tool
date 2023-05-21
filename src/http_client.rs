@@ -108,11 +108,13 @@ pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Err
         assert_eq!(request.method, Method::GET);
     }
 
-    let form_slice = &request.body[..];
-    easy.post_fields_copy(form_slice).map_err(|e| {
-        log::error!("{:?}", e);
-        Error::Curl(e)
-    })?;
+    if !request.body.is_empty() {
+        let form_slice = &request.body[..];
+        easy.post_fields_copy(form_slice).map_err(|e| {
+            log::error!("{:?}", e);
+            Error::Curl(e)
+        })?;
+    }
 
     let mut easy = curl.send_request(easy).await.map_err(|e| {
         log::error!("{:?}", e);

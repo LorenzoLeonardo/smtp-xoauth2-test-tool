@@ -2,6 +2,7 @@
 use std::fmt::Debug;
 use std::{error::Error, str::FromStr};
 
+use http::header::InvalidHeaderValue;
 use log::SetLoggerError;
 // 3rd party crates
 use oauth2::{
@@ -9,6 +10,8 @@ use oauth2::{
 };
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
+
+use crate::http_client;
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, EnumString)]
 #[serde(rename_all = "snake_case")]
@@ -44,6 +47,7 @@ pub enum ErrorCodes {
     InvalidParameters,
     LoggerError,
     DirectoryError,
+    HttpError,
     OtherError,
 }
 
@@ -125,6 +129,18 @@ impl From<std::io::Error> for OAuth2Error {
 impl From<SetLoggerError> for OAuth2Error {
     fn from(e: SetLoggerError) -> Self {
         OAuth2Error::new(ErrorCodes::LoggerError, e.to_string())
+    }
+}
+
+impl From<http_client::Error> for OAuth2Error {
+    fn from(e: http_client::Error) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<InvalidHeaderValue> for OAuth2Error {
+    fn from(e: InvalidHeaderValue) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
     }
 }
 
