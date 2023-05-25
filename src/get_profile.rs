@@ -61,37 +61,14 @@ impl SenderProfile for MicrosoftProfile {
 // End  for Microsoft
 // Start for Google
 #[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Person {
-    given_name: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PersonImage {
-    url: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct Email {
-    #[serde(rename(serialize = "type"))]
-    #[serde(rename(deserialize = "type"))]
-    email_type: String,
-    value: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct GoogleProfile {
-    kind: String,
-    display_name: String,
-    name: Person,
-    language: String,
-    image: PersonImage,
-    emails: Vec<Email>,
-    etag: String,
     id: String,
+    email: String,
+    verified_email: bool,
+    name: String,
+    given_name: String,
+    picture: String,
+    locale: String,
 }
 
 #[async_trait]
@@ -106,7 +83,7 @@ impl SenderProfile for GoogleProfile {
         );
 
         let request = HttpRequest {
-            url: Url::parse("https://www.googleapis.com/plus/v1/people/me")?,
+            url: Url::parse("https://www.googleapis.com/oauth2/v1/userinfo/")?,
             method: http::method::Method::GET,
             headers,
             body: Vec::new(),
@@ -119,12 +96,9 @@ impl SenderProfile for GoogleProfile {
         let body = String::from_utf8(response.body).unwrap_or(String::new());
 
         let sender_profile: GoogleProfile = serde_json::from_str(&body)?;
-        log::info!("Sender Name: {}", sender_profile.display_name.as_str());
-        log::info!("Sender E-mail: {}", sender_profile.emails[0].value.as_str());
-        Ok((
-            sender_profile.display_name,
-            sender_profile.emails[0].value.to_owned(),
-        ))
+        log::info!("Sender Name: {}", sender_profile.given_name.as_str());
+        log::info!("Sender E-mail: {}", sender_profile.email.as_str());
+        Ok((sender_profile.given_name, sender_profile.email))
     }
 }
 // End for Google
@@ -136,23 +110,13 @@ mod tests {
     #[test]
     fn test_google_profile() {
         let google_json = r#"{
-            "kind": "plus#person", 
-            "displayName": "Sender Name", 
-            "name": {
-              "givenName": "Sender Name"
-            }, 
-            "language": "en", 
-            "image": {
-              "url": "https://dummy_user_contentq"
-            }, 
-            "emails": [
-              {
-                "type": "ACCOUNT", 
-                "value": "dummyemail@gmail.com"
-              }
-            ], 
-            "etag": "%SaMple", 
-            "id": "12345678"
+            "id": "1525363627",
+            "email": "test@gmail.com",
+            "verified_email": true,
+            "name": "My Name",
+            "given_name": "My Name",
+            "picture": "https://picutre",
+            "locale": "en"
           }"#;
 
         let google: GoogleProfile = serde_json::from_str(google_json).unwrap();
