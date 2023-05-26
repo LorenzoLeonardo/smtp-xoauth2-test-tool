@@ -7,26 +7,28 @@ mod http_client;
 mod provider;
 mod token_keeper;
 
-use core::panic;
 // Standard libraries
 use std::env;
+use std::io::Write;
 use std::path::PathBuf;
 use std::str::FromStr;
 
 // 3rd party crates
-use env_logger::Env;
+use chrono::Local;
+use core::panic;
 use get_profile::{GoogleProfile, MicrosoftProfile};
+use log::LevelFilter;
 use oauth2::ClientSecret;
 use strum_macros::EnumString;
 
 // My crates
-use crate::auth_code_grant::auth_code_grant;
-use crate::device_code_flow::device_code_flow;
-use crate::error::{ErrorCodes, OAuth2Error};
-use crate::get_profile::SenderProfile;
-use crate::provider::Provider;
+use auth_code_grant::auth_code_grant;
+use device_code_flow::device_code_flow;
 use emailer::Emailer;
 use error::OAuth2Result;
+use error::{ErrorCodes, OAuth2Error};
+use get_profile::SenderProfile;
+use provider::Provider;
 use token_keeper::TokenKeeper;
 
 enum ParamIndex {
@@ -53,12 +55,34 @@ impl OAuth2TokenGrantFlow {
     }
 }
 
-fn init_logger(level: &str) -> OAuth2Result<()> {
-    Ok(env_logger::Builder::from_env(Env::default().default_filter_or(level)).try_init()?)
+fn init_logger(level: &str) {
+    let mut log_builder = env_logger::Builder::new();
+    log_builder.format(|buf, record| {
+        let mut module = "";
+        if let Some(path) = record.module_path() {
+            if let Some(split) = path.split("::").last() {
+                module = split;
+            }
+        }
+
+        writeln!(
+            buf,
+            "{}[{}]:{}: {}",
+            Local::now().format("[%d-%m-%Y %H:%M:%S]"),
+            record.level(),
+            module,
+            record.args()
+        )
+    });
+
+    log_builder.filter_level(LevelFilter::from_str(level).unwrap_or(LevelFilter::Info));
+    if let Err(e) = log_builder.try_init() {
+        log::error!("{:?}", e);
+    }
 }
 
 fn check_args(args: &[String]) -> OAuth2Result<()> {
-    if args.len() != 8 {
+    if args.len() < ParamIndex::DebugLevel as usize {
         eprintln!("How to use this tool?\n");
         eprintln!("Execute: cargo run <provider> <access token grant type> <client id> <client secret> <recipient email> <recipient name> <debug log level>");
         Err(OAuth2Error::new(
@@ -119,7 +143,11 @@ async fn main() -> OAuth2Result<()> {
     let client_id = &args[ParamIndex::ClientId as usize];
     let recipient_email = &args[ParamIndex::RecipientEmail as usize];
     let recipient_name = &args[ParamIndex::RecipientName as usize];
-    init_logger(args[ParamIndex::DebugLevel as usize].as_str())?;
+    if args.len() <= (ParamIndex::DebugLevel as usize) {
+        init_logger("info");
+    } else {
+        init_logger(args[ParamIndex::DebugLevel as usize].as_str());
+    }
 
     let access_token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {

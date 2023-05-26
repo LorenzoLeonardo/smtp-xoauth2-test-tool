@@ -19,11 +19,13 @@ The \<access token grant type\> can be of the following:
 - AuthorizationCodeGrant
 - DeviceCodeFlow
 
-The \<debug log level\> can be of the following:
+The \<debug log level\> can be of the following
 - error
 - warn
 - info
 - debug
 - trace
+If <debug log level> is not specified, the default
+level is info.
 
 Just look in the logs for the login link.
