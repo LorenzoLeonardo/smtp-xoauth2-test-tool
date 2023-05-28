@@ -148,7 +148,7 @@ async fn main() -> OAuth2Result<()> {
     };
 
     Emailer::new(provider.smtp_server, provider.smtp_server_port)
-        .set_sender(sender_name, sender_email)
+        .set_sender(sender_name.0, sender_email.0)
         .add_recipient(recipient_name.into(), recipient_email.into())
         .send_email(access_token)
         .await

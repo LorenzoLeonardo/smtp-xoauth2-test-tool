@@ -9,12 +9,15 @@ use crate::{
     provider::ProfileUrl,
 };
 
+pub struct SenderName(pub String);
+pub struct SenderEmail(pub String);
+
 #[async_trait]
 pub trait SenderProfile {
     async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
-    ) -> OAuth2Result<(String, String)>;
+    ) -> OAuth2Result<(SenderName, SenderEmail)>;
 }
 
 // Start for Microsoft
@@ -37,7 +40,7 @@ impl SenderProfile for MicrosoftProfile {
     async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
-    ) -> OAuth2Result<(String, String)> {
+    ) -> OAuth2Result<(SenderName, SenderEmail)> {
         let mut headers = HeaderMap::new();
 
         let header_val = format!("Bearer {}", access_token.secret().as_str());
@@ -62,7 +65,10 @@ impl SenderProfile for MicrosoftProfile {
         let sender_profile: MicrosoftProfile = serde_json::from_str(&body)?;
         log::info!("Sender Name: {}", sender_profile.display_name.as_str());
         log::info!("Sender E-mail: {}", sender_profile.email_address.as_str());
-        Ok((sender_profile.display_name, sender_profile.email_address))
+        Ok((
+            SenderName(sender_profile.display_name),
+            SenderEmail(sender_profile.email_address),
+        ))
     }
 }
 // End  for Microsoft
@@ -83,7 +89,7 @@ impl SenderProfile for GoogleProfile {
     async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
-    ) -> OAuth2Result<(String, String)> {
+    ) -> OAuth2Result<(SenderName, SenderEmail)> {
         let mut headers = HeaderMap::new();
 
         let header_val = format!("Bearer {}", access_token.secret().as_str());
@@ -108,7 +114,10 @@ impl SenderProfile for GoogleProfile {
         let sender_profile: GoogleProfile = serde_json::from_str(&body)?;
         log::info!("Sender Name: {}", sender_profile.given_name.as_str());
         log::info!("Sender E-mail: {}", sender_profile.email.as_str());
-        Ok((sender_profile.given_name, sender_profile.email))
+        Ok((
+            SenderName(sender_profile.given_name),
+            SenderEmail(sender_profile.email),
+        ))
     }
 }
 // End for Google
