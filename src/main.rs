@@ -10,7 +10,6 @@ mod token_keeper;
 // Standard libraries
 use std::env;
 use std::io::Write;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 // 3rd party crates
@@ -94,46 +93,11 @@ fn check_args(args: &[String]) -> OAuth2Result<()> {
     }
 }
 
-fn get_provider(args: &[String]) -> OAuth2Result<Provider> {
-    let provider_directory = std::env::current_exe()?
-        .parent()
-        .ok_or(OAuth2Error::new(
-            ErrorCodes::DirectoryError,
-            "No valid directory".to_string(),
-        ))?
-        .parent()
-        .ok_or(OAuth2Error::new(
-            ErrorCodes::DirectoryError,
-            "No valid directory".to_string(),
-        ))?
-        .parent()
-        .ok_or(OAuth2Error::new(
-            ErrorCodes::DirectoryError,
-            "No valid directory".to_string(),
-        ))?
-        .to_path_buf();
-    let provider_directory = provider_directory.join(PathBuf::from("endpoints"));
-    let provider = Provider::read(
-        &provider_directory,
-        &PathBuf::from(args[ParamIndex::Provider as usize].to_string()),
-    );
-    match provider {
-        Ok(provider) => Ok(provider),
-        Err(_err) => {
-            let provider = Provider::read(
-                &PathBuf::from("endpoints"),
-                &PathBuf::from(args[ParamIndex::Provider as usize].to_string()),
-            )?;
-            Ok(provider)
-        }
-    }
-}
-
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> OAuth2Result<()> {
     let args: Vec<String> = env::args().collect();
     check_args(&args)?;
-    let provider: Provider = get_provider(&args)?;
+    let provider: Provider = Provider::get_provider(&args)?;
     let client_secret = match args[ParamIndex::ClientSecret as usize].as_str() {
         "None" => None,
         _ => Some(ClientSecret::new(
@@ -174,8 +138,12 @@ async fn main() -> OAuth2Result<()> {
         };
 
     let (sender_name, sender_email) = match args[ParamIndex::Provider as usize].as_str() {
-        "Microsoft" => MicrosoftProfile::get_sender_profile(&access_token).await?,
-        "Google" => GoogleProfile::get_sender_profile(&access_token).await?,
+        "Microsoft" => {
+            MicrosoftProfile::get_sender_profile(&access_token, &provider.profile_endpoint).await?
+        }
+        "Google" => {
+            GoogleProfile::get_sender_profile(&access_token, &provider.profile_endpoint).await?
+        }
         &_ => panic!("Wrong provider"),
     };
 

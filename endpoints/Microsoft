@@ -4,5 +4,6 @@
     "device_auth_endpoint":"https://login.microsoftonline.com/common/oauth2/v2.0/devicecode",
     "scopes":["offline_access","https://outlook.office.com/SMTP.Send","https://outlook.office.com/User.Read"],
     "smtp_server":"smtp.office365.com",
-    "smtp_server_port":587
+    "smtp_server_port":587,
+    "profile_endpoint":"https://outlook.office.com/api/v2.0/me"
 }

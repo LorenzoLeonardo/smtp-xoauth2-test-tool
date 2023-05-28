@@ -1,16 +1,20 @@
 use async_trait::async_trait;
 use http::{HeaderMap, HeaderValue};
-use oauth2::{url::Url, AccessToken, HttpRequest};
+use oauth2::{AccessToken, HttpRequest};
 use serde::{Deserialize, Serialize};
 
 use crate::{
     error::{OAuth2Error, OAuth2Result},
     http_client::async_http_client,
+    provider::ProfileUrl,
 };
 
 #[async_trait]
 pub trait SenderProfile {
-    async fn get_sender_profile(access_token: &AccessToken) -> OAuth2Result<(String, String)>;
+    async fn get_sender_profile(
+        access_token: &AccessToken,
+        profile_endpoint: &ProfileUrl,
+    ) -> OAuth2Result<(String, String)>;
 }
 
 // Start for Microsoft
@@ -30,7 +34,10 @@ pub struct MicrosoftProfile {
 
 #[async_trait]
 impl SenderProfile for MicrosoftProfile {
-    async fn get_sender_profile(access_token: &AccessToken) -> OAuth2Result<(String, String)> {
+    async fn get_sender_profile(
+        access_token: &AccessToken,
+        profile_endpoint: &ProfileUrl,
+    ) -> OAuth2Result<(String, String)> {
         let mut headers = HeaderMap::new();
 
         let header_val = format!("Bearer {}", access_token.secret().as_str());
@@ -40,7 +47,7 @@ impl SenderProfile for MicrosoftProfile {
         );
 
         let request = HttpRequest {
-            url: Url::parse("https://outlook.office.com/api/v2.0/me/")?,
+            url: profile_endpoint.0.to_owned(),
             method: http::method::Method::GET,
             headers,
             body: Vec::new(),
@@ -73,7 +80,10 @@ pub struct GoogleProfile {
 
 #[async_trait]
 impl SenderProfile for GoogleProfile {
-    async fn get_sender_profile(access_token: &AccessToken) -> OAuth2Result<(String, String)> {
+    async fn get_sender_profile(
+        access_token: &AccessToken,
+        profile_endpoint: &ProfileUrl,
+    ) -> OAuth2Result<(String, String)> {
         let mut headers = HeaderMap::new();
 
         let header_val = format!("Bearer {}", access_token.secret().as_str());
@@ -83,7 +93,7 @@ impl SenderProfile for GoogleProfile {
         );
 
         let request = HttpRequest {
-            url: Url::parse("https://www.googleapis.com/oauth2/v1/userinfo/")?,
+            url: profile_endpoint.0.to_owned(),
             method: http::method::Method::GET,
             headers,
             body: Vec::new(),
