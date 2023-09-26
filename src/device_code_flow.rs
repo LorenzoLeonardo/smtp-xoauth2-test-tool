@@ -5,6 +5,7 @@ use std::{
 };
 
 // 3rd party crates
+use async_curl::{async_curl::AsyncCurl, response_handler::ResponseHandler};
 use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::{
@@ -15,11 +16,9 @@ use oauth2::{
 };
 
 // My crates
+use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
+use crate::http_client::HttpClient;
 use crate::TokenKeeper;
-use crate::{
-    error::{ErrorCodes, OAuth2Error, OAuth2Result},
-    http_client::async_http_client,
-};
 
 #[async_trait]
 pub trait DeviceCodeFlowTrait {
@@ -195,6 +194,7 @@ pub async fn device_code_flow(
     device_auth_endpoint: DeviceAuthorizationUrl,
     token_endpoint: TokenUrl,
     scopes: Vec<Scope>,
+    curl: AsyncCurl<ResponseHandler>,
 ) -> OAuth2Result<AccessToken> {
     let oauth2_cloud = DeviceCodeFlow::new(
         ClientId::new(client_id.to_string()),
@@ -217,7 +217,12 @@ pub async fn device_code_flow(
     // If there is no exsting token, get it from the cloud
     if let Err(_err) = token_keeper.read(&token_file) {
         let device_auth_response = oauth2_cloud
-            .request_device_code(scopes, async_http_client)
+            .request_device_code(scopes, |request| async {
+                HttpClient::new(curl.clone())
+                    .request(request)?
+                    .perform()
+                    .await
+            })
             .await?;
 
         log::info!(
@@ -230,7 +235,12 @@ pub async fn device_code_flow(
         );
 
         let token = oauth2_cloud
-            .poll_access_token(device_auth_response, async_http_client)
+            .poll_access_token(device_auth_response, |request| async {
+                HttpClient::new(curl.clone())
+                    .request(request)?
+                    .perform()
+                    .await
+            })
             .await?;
         token_keeper = TokenKeeper::from(token);
         token_keeper.set_directory(directory.to_path_buf());
@@ -238,7 +248,12 @@ pub async fn device_code_flow(
         token_keeper.save(&token_file)?;
     } else {
         token_keeper = oauth2_cloud
-            .get_access_token(&directory, &token_file, async_http_client)
+            .get_access_token(&directory, &token_file, |request| async {
+                HttpClient::new(curl.clone())
+                    .request(request)?
+                    .perform()
+                    .await
+            })
             .await?;
     }
     Ok(token_keeper.access_token)

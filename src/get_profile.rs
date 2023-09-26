@@ -3,9 +3,12 @@ use http::{HeaderMap, HeaderValue};
 use oauth2::{AccessToken, HttpRequest};
 use serde::{Deserialize, Serialize};
 
+use async_curl::async_curl::AsyncCurl;
+use async_curl::response_handler::ResponseHandler;
+
 use crate::{
     error::{OAuth2Error, OAuth2Result},
-    http_client::async_http_client,
+    http_client::HttpClient,
     provider::ProfileUrl,
 };
 
@@ -17,6 +20,7 @@ pub trait SenderProfile {
     async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
+        curl: AsyncCurl<ResponseHandler>,
     ) -> OAuth2Result<(SenderName, SenderEmail)>;
 }
 
@@ -40,6 +44,7 @@ impl SenderProfile for MicrosoftProfile {
     async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
+        curl: AsyncCurl<ResponseHandler>,
     ) -> OAuth2Result<(SenderName, SenderEmail)> {
         let mut headers = HeaderMap::new();
 
@@ -55,10 +60,7 @@ impl SenderProfile for MicrosoftProfile {
             headers,
             body: Vec::new(),
         };
-
-        let response = async_http_client(request)
-            .await
-            .map_err(OAuth2Error::from)?;
+        let response = HttpClient::new(curl).request(request)?.perform().await?;
 
         let body = String::from_utf8(response.body).unwrap_or(String::new());
 
@@ -89,6 +91,7 @@ impl SenderProfile for GoogleProfile {
     async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
+        curl: AsyncCurl<ResponseHandler>,
     ) -> OAuth2Result<(SenderName, SenderEmail)> {
         let mut headers = HeaderMap::new();
 
@@ -105,9 +108,7 @@ impl SenderProfile for GoogleProfile {
             body: Vec::new(),
         };
 
-        let response = async_http_client(request)
-            .await
-            .map_err(OAuth2Error::from)?;
+        let response = HttpClient::new(curl).request(request)?.perform().await?;
 
         let body = String::from_utf8(response.body).unwrap_or(String::new());
 

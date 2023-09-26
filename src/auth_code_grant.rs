@@ -4,6 +4,8 @@ use std::net::TcpListener;
 use std::path::PathBuf;
 use std::{future::Future, path::Path};
 
+use async_curl::async_curl::AsyncCurl;
+use async_curl::response_handler::ResponseHandler;
 // 3rd party crates
 use async_trait::async_trait;
 use directories::UserDirs;
@@ -15,7 +17,7 @@ use oauth2::{AccessToken, AuthorizationCode};
 
 // My crates
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
-use crate::http_client::async_http_client;
+use crate::http_client::HttpClient;
 use crate::TokenKeeper;
 
 #[async_trait]
@@ -191,6 +193,7 @@ pub async fn auth_code_grant(
     auth_url: AuthUrl,
     token_url: TokenUrl,
     scopes: Vec<Scope>,
+    curl: AsyncCurl<ResponseHandler>,
 ) -> OAuth2Result<AccessToken> {
     let auth_code_grant = AuthCodeGrant::new(
         ClientId::new(client_id.to_string()),
@@ -278,14 +281,24 @@ pub async fn auth_code_grant(
 
             // Exchange the code with a token.
             token_keeper = auth_code_grant
-                .exchange_auth_code(&directory, &token_file, code, async_http_client)
+                .exchange_auth_code(&directory, &token_file, code, |request| async {
+                    HttpClient::new(curl.clone())
+                        .request(request)?
+                        .perform()
+                        .await
+                })
                 .await?;
 
             // The server will terminate itself after collecting the first code.
         }
     } else {
         token_keeper = auth_code_grant
-            .get_access_token(&directory, &token_file, async_http_client)
+            .get_access_token(&directory, &token_file, |request| async {
+                HttpClient::new(curl.clone())
+                    .request(request)?
+                    .perform()
+                    .await
+            })
             .await?;
     }
     Ok(token_keeper.access_token)
