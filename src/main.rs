@@ -1,5 +1,5 @@
-mod auth_code_grant;
-mod device_code_flow;
+pub mod auth_code_grant;
+pub mod device_code_flow;
 mod emailer;
 mod error;
 mod get_profile;
@@ -12,6 +12,7 @@ use std::env;
 use std::io::Write;
 use std::str::FromStr;
 
+use async_curl::async_curl::AsyncCurl;
 // 3rd party crates
 use chrono::Local;
 use core::panic;
@@ -113,6 +114,7 @@ async fn main() -> OAuth2Result<()> {
         init_logger(args[ParamIndex::DebugLevel as usize].as_str());
     }
 
+    let curl = AsyncCurl::new();
     let access_token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
@@ -122,6 +124,7 @@ async fn main() -> OAuth2Result<()> {
                     provider.authorization_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
+                    curl.clone(),
                 )
                 .await?
             }
@@ -132,6 +135,7 @@ async fn main() -> OAuth2Result<()> {
                     provider.device_auth_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
+                    curl.clone(),
                 )
                 .await?
             }
@@ -139,10 +143,12 @@ async fn main() -> OAuth2Result<()> {
 
     let (sender_name, sender_email) = match args[ParamIndex::Provider as usize].as_str() {
         "Microsoft" => {
-            MicrosoftProfile::get_sender_profile(&access_token, &provider.profile_endpoint).await?
+            MicrosoftProfile::get_sender_profile(&access_token, &provider.profile_endpoint, curl)
+                .await?
         }
         "Google" => {
-            GoogleProfile::get_sender_profile(&access_token, &provider.profile_endpoint).await?
+            GoogleProfile::get_sender_profile(&access_token, &provider.profile_endpoint, curl)
+                .await?
         }
         &_ => panic!("Wrong provider"),
     };

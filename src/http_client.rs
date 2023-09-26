@@ -61,103 +61,126 @@ impl fmt::Display for DebugHttpRequest {
         )
     }
 }
-///
-/// Synchronous HTTP client.
-///
-pub async fn async_http_client(request: HttpRequest) -> Result<HttpResponse, Error> {
-    log::debug!("{}", DebugHttpRequest::from(&request));
-    let curl = AsyncCurl::new();
-    let mut easy = Easy2::new(ResponseHandler::new());
 
-    easy.url(&request.url.to_string()[..]).map_err(|e| {
-        log::error!("{:?}", e);
-        Error::Curl(e)
-    })?;
+pub struct Build;
+pub struct Perform;
 
-    let mut headers = curl::easy::List::new();
-    request.headers.iter().try_for_each(|(name, value)| {
-        headers
-            .append(&format!(
-                "{}: {}",
-                name,
-                value.to_str().map_err(|_| Error::Other(format!(
-                    "invalid {} header value {:?}",
-                    name,
-                    value.as_bytes()
-                )))?
-            ))
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                Error::Curl(e)
-            })
-    })?;
+pub struct HttpClient<S> {
+    curl: AsyncCurl<ResponseHandler>,
+    easy: Easy2<ResponseHandler>,
+    _state: S,
+}
 
-    easy.http_headers(headers).map_err(|e| {
-        log::error!("{:?}", e);
-        Error::Curl(e)
-    })?;
-
-    if let Method::POST = request.method {
-        easy.post(true).map_err(Error::Curl)?;
-        easy.post_field_size(request.body.len() as u64)
-            .map_err(|e| {
-                log::error!("{:?}", e);
-                Error::Curl(e)
-            })?;
-    } else {
-        assert_eq!(request.method, Method::GET);
+impl HttpClient<Build> {
+    pub fn new(curl: AsyncCurl<ResponseHandler>) -> Self {
+        Self {
+            curl,
+            easy: Easy2::new(ResponseHandler::new()),
+            _state: Build,
+        }
     }
 
-    if !request.body.is_empty() {
-        let form_slice = &request.body[..];
-        easy.post_fields_copy(form_slice).map_err(|e| {
+    pub fn request(mut self, request: HttpRequest) -> Result<HttpClient<Perform>, Error> {
+        log::trace!("{}", DebugHttpRequest::from(&request));
+
+        self.easy.url(&request.url.to_string()[..]).map_err(|e| {
             log::error!("{:?}", e);
             Error::Curl(e)
         })?;
-    }
 
-    let mut easy = curl.send_request(easy).await.map_err(|e| {
-        log::error!("{:?}", e);
-        Error::AsyncCurl(e)
-    })?;
+        let mut headers = curl::easy::List::new();
+        request.headers.iter().try_for_each(|(name, value)| {
+            headers
+                .append(&format!(
+                    "{}: {}",
+                    name,
+                    value.to_str().map_err(|_| Error::Other(format!(
+                        "invalid {} header value {:?}",
+                        name,
+                        value.as_bytes()
+                    )))?
+                ))
+                .map_err(|e| {
+                    log::error!("{:?}", e);
+                    Error::Curl(e)
+                })
+        })?;
 
-    let data = easy.get_ref().to_owned().get_data();
-    let status_code = easy.response_code().map_err(|e| {
-        log::error!("{:?}", e);
-        Error::Curl(e)
-    })? as u16;
-    let response_header = easy
-        .content_type()
-        .map_err(|e| {
+        self.easy.http_headers(headers).map_err(|e| {
             log::error!("{:?}", e);
             Error::Curl(e)
-        })?
-        .map(|content_type| {
-            Ok(vec![(
-                CONTENT_TYPE,
-                HeaderValue::from_str(content_type).map_err(|err| {
-                    log::error!("{:?}", err);
-                    Error::Http(err.into())
-                })?,
-            )]
-            .into_iter()
-            .collect::<HeaderMap>())
-        })
-        .transpose()?
-        .unwrap_or_else(HeaderMap::new);
+        })?;
 
-    log::debug!(
-        "Response:\n\tHeader:{:?}\n\tBody:{}\n\tStatus Code:{}\n\n",
-        &response_header,
-        String::from_utf8(data.to_owned()).unwrap_or(String::new()),
-        &status_code
-    );
-    Ok(HttpResponse {
-        status_code: StatusCode::from_u16(status_code).map_err(|err| {
-            log::error!("{:?}", err);
-            Error::Http(err.into())
-        })?,
-        headers: response_header,
-        body: data,
-    })
+        if let Method::POST = request.method {
+            self.easy.post(true).map_err(Error::Curl)?;
+            self.easy
+                .post_field_size(request.body.len() as u64)
+                .map_err(|e| {
+                    log::error!("{:?}", e);
+                    Error::Curl(e)
+                })?;
+            self.easy
+                .post_fields_copy(request.body.as_slice())
+                .map_err(|e| {
+                    log::error!("{:?}", e);
+                    Error::Curl(e)
+                })?;
+        } else {
+            assert_eq!(request.method, Method::GET);
+        }
+        Ok(HttpClient::<Perform> {
+            curl: self.curl,
+            easy: self.easy,
+            _state: Perform,
+        })
+    }
+}
+
+impl HttpClient<Perform> {
+    pub async fn perform(self) -> Result<HttpResponse, Error> {
+        let mut easy = self.curl.send_request(self.easy).await.map_err(|e| {
+            log::error!("{:?}", e);
+            Error::AsyncCurl(e)
+        })?;
+
+        let data = easy.get_ref().to_owned().get_data();
+        let status_code = easy.response_code().map_err(|e| {
+            log::error!("{:?}", e);
+            Error::Curl(e)
+        })? as u16;
+        let response_header = easy
+            .content_type()
+            .map_err(|e| {
+                log::error!("{:?}", e);
+                Error::Curl(e)
+            })?
+            .map(|content_type| {
+                Ok(vec![(
+                    CONTENT_TYPE,
+                    HeaderValue::from_str(content_type).map_err(|err| {
+                        log::error!("{:?}", err);
+                        Error::Http(err.into())
+                    })?,
+                )]
+                .into_iter()
+                .collect::<HeaderMap>())
+            })
+            .transpose()?
+            .unwrap_or_else(HeaderMap::new);
+
+        log::trace!(
+            "Response:\n\tHeader:{:?}\n\tBody:{}\n\tStatus Code:{}\n\n",
+            &response_header,
+            String::from_utf8(data.to_owned()).unwrap_or(String::new()),
+            &status_code
+        );
+        Ok(HttpResponse {
+            status_code: StatusCode::from_u16(status_code).map_err(|err| {
+                log::error!("{:?}", err);
+                Error::Http(err.into())
+            })?,
+            headers: response_header,
+            body: data,
+        })
+    }
 }
