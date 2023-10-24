@@ -48,6 +48,12 @@ impl Curl {
             .request(Curl::to_curl_request(request))?
             .perform()
             .await
-            .map(|response| Curl::to_oauth_response(response))
+            .map(Curl::to_oauth_response)
+    }
+}
+
+impl Default for Curl {
+    fn default() -> Self {
+        Self::new()
     }
 }

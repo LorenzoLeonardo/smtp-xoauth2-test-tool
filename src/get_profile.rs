@@ -59,7 +59,7 @@ impl SenderProfile for MicrosoftProfile {
         };
         let response = curl.send(request).await?;
 
-        let body = String::from_utf8(response.body).unwrap_or(String::new());
+        let body = String::from_utf8(response.body).unwrap_or_default();
 
         let sender_profile: MicrosoftProfile = serde_json::from_str(&body)?;
         log::info!("Sender Name: {}", sender_profile.display_name.as_str());
@@ -107,7 +107,7 @@ impl SenderProfile for GoogleProfile {
 
         let response = curl.send(request).await?;
 
-        let body = String::from_utf8(response.body).unwrap_or(String::new());
+        let body = String::from_utf8(response.body).unwrap_or_default();
 
         let sender_profile: GoogleProfile = serde_json::from_str(&body)?;
         log::info!("Sender Name: {}", sender_profile.given_name.as_str());
