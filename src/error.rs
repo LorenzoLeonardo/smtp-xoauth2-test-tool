@@ -11,8 +11,6 @@ use oauth2::{
 use serde::{Deserialize, Serialize};
 use strum_macros::EnumString;
 
-use crate::http_client;
-
 #[derive(Serialize, Deserialize, Debug, PartialEq, EnumString)]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
@@ -48,6 +46,7 @@ pub enum ErrorCodes {
     LoggerError,
     DirectoryError,
     HttpError,
+    CurlError,
     OtherError,
 }
 
@@ -132,9 +131,9 @@ impl From<SetLoggerError> for OAuth2Error {
     }
 }
 
-impl From<http_client::Error> for OAuth2Error {
-    fn from(e: http_client::Error) -> Self {
-        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+impl From<curl_http_client::error::Error> for OAuth2Error {
+    fn from(e: curl_http_client::error::Error) -> Self {
+        OAuth2Error::new(ErrorCodes::CurlError, e.to_string())
     }
 }
 

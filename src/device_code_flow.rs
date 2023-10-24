@@ -5,7 +5,6 @@ use std::{
 };
 
 // 3rd party crates
-use async_curl::{async_curl::AsyncCurl, response_handler::ResponseHandler};
 use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::{
@@ -16,9 +15,11 @@ use oauth2::{
 };
 
 // My crates
-use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
-use crate::http_client::HttpClient;
 use crate::TokenKeeper;
+use crate::{
+    curl::Curl,
+    error::{ErrorCodes, OAuth2Error, OAuth2Result},
+};
 
 #[async_trait]
 pub trait DeviceCodeFlowTrait {
@@ -194,7 +195,7 @@ pub async fn device_code_flow(
     device_auth_endpoint: DeviceAuthorizationUrl,
     token_endpoint: TokenUrl,
     scopes: Vec<Scope>,
-    curl: AsyncCurl<ResponseHandler>,
+    curl: Curl,
 ) -> OAuth2Result<AccessToken> {
     let oauth2_cloud = DeviceCodeFlow::new(
         ClientId::new(client_id.to_string()),
@@ -217,12 +218,7 @@ pub async fn device_code_flow(
     // If there is no exsting token, get it from the cloud
     if let Err(_err) = token_keeper.read(&token_file) {
         let device_auth_response = oauth2_cloud
-            .request_device_code(scopes, |request| async {
-                HttpClient::new(curl.clone())
-                    .request(request)?
-                    .perform()
-                    .await
-            })
+            .request_device_code(scopes, |request| async { curl.send(request).await })
             .await?;
 
         log::info!(
@@ -236,10 +232,7 @@ pub async fn device_code_flow(
 
         let token = oauth2_cloud
             .poll_access_token(device_auth_response, |request| async {
-                HttpClient::new(curl.clone())
-                    .request(request)?
-                    .perform()
-                    .await
+                curl.send(request).await
             })
             .await?;
         token_keeper = TokenKeeper::from(token);
@@ -249,10 +242,7 @@ pub async fn device_code_flow(
     } else {
         token_keeper = oauth2_cloud
             .get_access_token(&directory, &token_file, |request| async {
-                HttpClient::new(curl.clone())
-                    .request(request)?
-                    .perform()
-                    .await
+                curl.send(request).await
             })
             .await?;
     }
