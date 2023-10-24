@@ -1,9 +1,9 @@
 pub mod auth_code_grant;
+mod curl;
 pub mod device_code_flow;
 mod emailer;
 mod error;
 mod get_profile;
-mod http_client;
 mod provider;
 mod token_keeper;
 
@@ -12,10 +12,10 @@ use std::env;
 use std::io::Write;
 use std::str::FromStr;
 
-use async_curl::async_curl::AsyncCurl;
 // 3rd party crates
 use chrono::Local;
 use core::panic;
+use curl::Curl;
 use get_profile::{GoogleProfile, MicrosoftProfile};
 use log::LevelFilter;
 use oauth2::ClientSecret;
@@ -114,7 +114,7 @@ async fn main() -> OAuth2Result<()> {
         init_logger(args[ParamIndex::DebugLevel as usize].as_str());
     }
 
-    let curl = AsyncCurl::new();
+    let curl = Curl::new();
     let access_token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {

@@ -297,6 +297,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "curl-http-client"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "18146257b8b5c8b53ed883c567b8685cf7e701e22fb3ed28abf62dbe4f61958b"
+dependencies = [
+ "async-curl",
+ "curl",
+ "derive-deref-rs",
+ "http",
+ "thiserror",
+ "tokio",
+ "url",
+]
+
+[[package]]
 name = "curl-sys"
 version = "0.4.66+curl-8.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -322,6 +337,17 @@ name = "deranged"
 version = "0.3.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2696e8a945f658fd14dc3b87242e6b80cd0f36ff04ea560fa39082368847946"
+
+[[package]]
+name = "derive-deref-rs"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fb44ba65b4c7afe45d03d8e33ecb53a21c57d0ffff196f04aefa15c43671f8a6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.109",
+]
 
 [[package]]
 name = "digest"
@@ -1314,7 +1340,7 @@ dependencies = [
  "async-curl",
  "async-trait",
  "chrono",
- "curl",
+ "curl-http-client",
  "directories",
  "env_logger",
  "http",
@@ -1465,9 +1491,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.32.0"
+version = "1.33.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "17ed6077ed6cd6c74735e21f37eb16dc3935f96878b1fe961074089cc80893f9"
+checksum = "4f38200e3ef7995e5ef13baec2f432a6da0aa9ac495b2c0e8f3b7eec2c92d653"
 dependencies = [
  "backtrace",
  "bytes",
