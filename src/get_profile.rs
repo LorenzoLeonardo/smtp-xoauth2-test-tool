@@ -1,4 +1,4 @@
-use async_trait::async_trait;
+use derive_deref_rs::Deref;
 use http::{HeaderMap, HeaderValue};
 use oauth2::{AccessToken, HttpRequest};
 use serde::{Deserialize, Serialize};
@@ -9,19 +9,11 @@ use crate::{
     provider::ProfileUrl,
 };
 
+#[derive(Deref)]
 pub struct SenderName(pub String);
+#[derive(Deref)]
 pub struct SenderEmail(pub String);
 
-#[async_trait]
-pub trait SenderProfile {
-    async fn get_sender_profile(
-        access_token: &AccessToken,
-        profile_endpoint: &ProfileUrl,
-        curl: Curl,
-    ) -> OAuth2Result<(SenderName, SenderEmail)>;
-}
-
-// Start for Microsoft
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(rename_all = "PascalCase")]
 pub struct MicrosoftProfile {
@@ -30,48 +22,12 @@ pub struct MicrosoftProfile {
     #[serde(rename = "@odata.id")]
     odata_id: String,
     id: String,
-    pub email_address: String,
-    pub display_name: String,
+    email_address: String,
+    display_name: String,
     alias: String,
     mailbox_guid: String,
 }
 
-#[async_trait]
-impl SenderProfile for MicrosoftProfile {
-    async fn get_sender_profile(
-        access_token: &AccessToken,
-        profile_endpoint: &ProfileUrl,
-        curl: Curl,
-    ) -> OAuth2Result<(SenderName, SenderEmail)> {
-        let mut headers = HeaderMap::new();
-
-        let header_val = format!("Bearer {}", access_token.secret().as_str());
-        headers.insert(
-            "Authorization",
-            HeaderValue::from_str(&header_val).map_err(OAuth2Error::from)?,
-        );
-
-        let request = HttpRequest {
-            url: profile_endpoint.0.to_owned(),
-            method: http::method::Method::GET,
-            headers,
-            body: Vec::new(),
-        };
-        let response = curl.send(request).await?;
-
-        let body = String::from_utf8(response.body).unwrap_or_default();
-
-        let sender_profile: MicrosoftProfile = serde_json::from_str(&body)?;
-        log::info!("Sender Name: {}", sender_profile.display_name.as_str());
-        log::info!("Sender E-mail: {}", sender_profile.email_address.as_str());
-        Ok((
-            SenderName(sender_profile.display_name),
-            SenderEmail(sender_profile.email_address),
-        ))
-    }
-}
-// End  for Microsoft
-// Start for Google
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GoogleProfile {
     id: String,
@@ -83,9 +39,15 @@ pub struct GoogleProfile {
     locale: String,
 }
 
-#[async_trait]
-impl SenderProfile for GoogleProfile {
-    async fn get_sender_profile(
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum Profile {
+    Microsoft(MicrosoftProfile),
+    Google(GoogleProfile),
+}
+
+impl Profile {
+    pub async fn get_sender_profile(
         access_token: &AccessToken,
         profile_endpoint: &ProfileUrl,
         curl: Curl,
@@ -104,25 +66,33 @@ impl SenderProfile for GoogleProfile {
             headers,
             body: Vec::new(),
         };
-
         let response = curl.send(request).await?;
 
         let body = String::from_utf8(response.body).unwrap_or_default();
 
-        let sender_profile: GoogleProfile = serde_json::from_str(&body)?;
-        log::info!("Sender Name: {}", sender_profile.given_name.as_str());
-        log::info!("Sender E-mail: {}", sender_profile.email.as_str());
-        Ok((
-            SenderName(sender_profile.given_name),
-            SenderEmail(sender_profile.email),
-        ))
+        let sender_profile: Profile = serde_json::from_str(&body)?;
+        let (name, email) = match sender_profile {
+            Profile::Microsoft(profile) => {
+                log::debug!("Response: {:?}", profile);
+                (
+                    SenderName(profile.display_name),
+                    SenderEmail(profile.email_address),
+                )
+            }
+            Profile::Google(profile) => {
+                log::debug!("Response: {:?}", profile);
+                (SenderName(profile.given_name), SenderEmail(profile.email))
+            }
+        };
+        log::info!("Sender Name: {}", name.as_str());
+        log::info!("Sender E-mail: {}", email.as_str());
+        Ok((name, email))
     }
 }
-// End for Google
 
 #[cfg(test)]
 mod tests {
-    use super::GoogleProfile;
+    use crate::get_profile::Profile;
 
     #[test]
     fn test_google_profile() {
@@ -136,8 +106,35 @@ mod tests {
             "locale": "en"
           }"#;
 
-        let google: GoogleProfile = serde_json::from_str(google_json).unwrap();
-        println!("deserialize = {:?}", &google);
-        println!("serialize = {:?}", serde_json::to_string(&google).unwrap());
+        let google: Profile = serde_json::from_str(google_json).unwrap();
+
+        if let Profile::Google(google) = google {
+            println!("deserialize = {:?}", &google);
+            println!("serialize = {:?}", serde_json::to_string(&google).unwrap());
+        } else {
+            panic!("Not Google");
+        }
+    }
+
+    #[test]
+    fn test_microsoft_profile() {
+        let ms_json = r#"{
+            "@odata.context": "data context",
+            "@odata.id": "data id",
+            "Id": "sample id",
+            "EmailAddress": "test@outlook.com",
+            "DisplayName": "My Name",
+            "Alias": "Haxxx",
+            "MailboxGuid": "en"
+          }"#;
+
+        let ms: Profile = serde_json::from_str(ms_json).unwrap();
+
+        if let Profile::Microsoft(ms) = ms {
+            println!("deserialize = {:?}", &ms);
+            println!("serialize = {:?}", serde_json::to_string(&ms).unwrap());
+        } else {
+            panic!("Not Microsoft");
+        }
     }
 }

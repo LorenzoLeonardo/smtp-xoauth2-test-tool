@@ -16,7 +16,7 @@ use std::str::FromStr;
 use chrono::Local;
 use core::panic;
 use curl::Curl;
-use get_profile::{GoogleProfile, MicrosoftProfile};
+use get_profile::Profile;
 use log::LevelFilter;
 use oauth2::ClientSecret;
 use strum_macros::EnumString;
@@ -27,7 +27,6 @@ use device_code_flow::device_code_flow;
 use emailer::Emailer;
 use error::OAuth2Result;
 use error::{ErrorCodes, OAuth2Error};
-use get_profile::SenderProfile;
 use provider::Provider;
 use token_keeper::TokenKeeper;
 
@@ -142,13 +141,8 @@ async fn main() -> OAuth2Result<()> {
         };
 
     let (sender_name, sender_email) = match args[ParamIndex::Provider as usize].as_str() {
-        "Microsoft" => {
-            MicrosoftProfile::get_sender_profile(&access_token, &provider.profile_endpoint, curl)
-                .await?
-        }
-        "Google" => {
-            GoogleProfile::get_sender_profile(&access_token, &provider.profile_endpoint, curl)
-                .await?
+        "Microsoft" | "Google" => {
+            Profile::get_sender_profile(&access_token, &provider.profile_endpoint, curl).await?
         }
         &_ => panic!("Wrong provider"),
     };
