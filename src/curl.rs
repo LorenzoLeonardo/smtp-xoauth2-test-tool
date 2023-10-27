@@ -44,11 +44,27 @@ impl Curl {
     }
 
     pub async fn send(&self, request: oauth2::HttpRequest) -> Result<oauth2::HttpResponse, Error> {
-        HttpClient::new(self.actor_handle.clone(), Collector::Ram(Vec::new()))
+        log::debug!("Request Url: {}", request.url);
+        log::debug!("Request Header: {:?}", request.headers);
+        log::debug!("Request Method: {}", request.method);
+        log::debug!(
+            "Request Body: {}",
+            std::str::from_utf8(request.body.as_slice()).unwrap_or_default()
+        );
+
+        let response = HttpClient::new(self.actor_handle.clone(), Collector::Ram(Vec::new()))
             .request(Curl::to_curl_request(request))?
             .perform()
             .await
-            .map(Curl::to_oauth_response)
+            .map(Curl::to_oauth_response)?;
+
+        log::debug!("Response Header: {:?}", response.headers);
+        log::debug!(
+            "Response Body: {}",
+            std::str::from_utf8(response.body.as_slice()).unwrap_or_default()
+        );
+        log::debug!("Response Status: {}", response.status_code);
+        Ok(response)
     }
 }
 
