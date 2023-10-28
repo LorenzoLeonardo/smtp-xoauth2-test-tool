@@ -67,9 +67,9 @@ dependencies = [
 
 [[package]]
 name = "async-curl"
-version = "0.1.8"
+version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3c9efd1ff9cb04352bf3f66cde439f4b3be7b01c69417684fb6cae4efbb48dd2"
+checksum = "c05cca50d8c54bdd18b8985a27ce171e6f6ca4b1cf9aaef62b40ac5889bcc482"
 dependencies = [
  "curl",
  "http",
@@ -299,9 +299,9 @@ dependencies = [
 
 [[package]]
 name = "curl-http-client"
-version = "0.1.4"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "449b47c6d45702bd8240a7687ce765c6ddbf6d427ec2ef814dade8f5d65017f5"
+checksum = "45679bbb3ef60475a403896941879dee827366dcac75a347033acf84d744e848"
 dependencies = [
  "async-curl",
  "curl",
@@ -1887,18 +1887,18 @@ dependencies = [
 
 [[package]]
 name = "zerocopy"
-version = "0.7.17"
+version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1808c6e5aa42cb2b67578276190258f08679c275d92a19735aad5d359e1b154"
+checksum = "ede7d7c7970ca2215b8c1ccf4d4f354c4733201dfaaba72d44ae5b37472e4901"
 dependencies = [
  "zerocopy-derive",
 ]
 
 [[package]]
 name = "zerocopy-derive"
-version = "0.7.17"
+version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ea597733532c780ce3e110401fc3b359b984cc78e17ac0917d3f371ffd1c1618"
+checksum = "4b27b1bb92570f989aac0ab7e9cbfbacdd65973f7ee920d9f0e71ebac878fd0b"
 dependencies = [
  "proc-macro2",
  "quote",

@@ -1,4 +1,4 @@
-use async_curl::async_curl::AsyncCurl;
+use async_curl::actor::CurlActor;
 use curl_http_client::{
     collector::Collector, error::Error, http_client::HttpClient, request::HttpRequest,
     response::HttpResponse,
@@ -6,13 +6,13 @@ use curl_http_client::{
 
 #[derive(Clone)]
 pub struct Curl {
-    pub actor_handle: AsyncCurl<Collector>,
+    pub actor_handle: CurlActor<Collector>,
 }
 
 impl Curl {
     pub fn new() -> Self {
         Self {
-            actor_handle: AsyncCurl::new(),
+            actor_handle: CurlActor::new(),
         }
     }
 
