@@ -2,6 +2,7 @@
 use std::fmt::Debug;
 use std::{error::Error, str::FromStr};
 
+use curl_http_client::collector::ExtendedHandler;
 use http::header::InvalidHeaderValue;
 use log::SetLoggerError;
 // 3rd party crates
@@ -131,8 +132,11 @@ impl From<SetLoggerError> for OAuth2Error {
     }
 }
 
-impl From<curl_http_client::error::Error> for OAuth2Error {
-    fn from(e: curl_http_client::error::Error) -> Self {
+impl<C> From<curl_http_client::error::Error<C>> for OAuth2Error
+where
+    C: ExtendedHandler + Debug + Send + 'static,
+{
+    fn from(e: curl_http_client::error::Error<C>) -> Self {
         OAuth2Error::new(ErrorCodes::CurlError, e.to_string())
     }
 }
