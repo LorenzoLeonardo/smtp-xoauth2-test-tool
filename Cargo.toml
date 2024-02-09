@@ -5,10 +5,10 @@ edition = "2021"
 author = "Lorenzo Leonardo <enzotechcomputersolutions@gmail.com>"
 
 [dependencies]
-async-curl = "0.2"
+async-curl = "0.3"
 async-trait = "0.1"
 chrono = "0.4"
-curl-http-client = "0.3"
+curl-http-client = "0.4"
 derive-deref-rs = "0.1"
 directories = "5.0"
 env_logger = "0.10"
