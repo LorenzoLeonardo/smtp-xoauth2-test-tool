@@ -1393,7 +1393,7 @@ checksum = "34344dcc7dd10b3de9224fd68e5f019fff2246d9cdf8e4322f770f48030e0c83"
 
 [[package]]
 name = "smtp-xoauth2-test-tool"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "async-curl",
  "async-trait",

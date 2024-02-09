@@ -113,6 +113,9 @@ async fn main() -> OAuth2Result<()> {
         init_logger(args[ParamIndex::DebugLevel as usize].as_str());
     }
 
+    let version = env!("CARGO_PKG_VERSION");
+    log::info!("SMTP Test Tool v{} has started...", version);
+
     let curl = Curl::new();
     let access_token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
