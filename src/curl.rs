@@ -55,14 +55,12 @@ impl Curl {
             std::str::from_utf8(request.body.as_slice()).unwrap_or_default()
         );
 
-        let response = HttpClient::new(
-            self.actor_handle.clone(),
-            Collector::RamAndHeaders(Vec::new(), Vec::new()),
-        )
-        .request(Curl::to_curl_request(request))?
-        .perform()
-        .await
-        .map(Curl::to_oauth_response)?;
+        let response = HttpClient::new(Collector::RamAndHeaders(Vec::new(), Vec::new()))
+            .request(Curl::to_curl_request(request))?
+            .nonblocking(self.actor_handle.clone())
+            .perform()
+            .await
+            .map(Curl::to_oauth_response)?;
 
         log::debug!("Response Header: {:?}", response.headers);
         log::debug!(
