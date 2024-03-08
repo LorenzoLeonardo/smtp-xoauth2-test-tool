@@ -62,13 +62,12 @@ impl Profile {
             HeaderValue::from_str(&header_val).map_err(OAuth2Error::from)?,
         );
         let mut request = oauth2::HttpRequest::new(Vec::new());
-        *request.uri_mut() =
-            oauth2::http::Uri::from_str(&profile_endpoint.0.to_owned().to_string()).unwrap();
+        *request.uri_mut() = oauth2::http::Uri::from_str(profile_endpoint.0.to_owned().as_ref())?;
         *request.method_mut() = oauth2::http::Method::GET;
 
         request.headers_mut().insert(
-            oauth2::http::HeaderName::from_str("Authorization").unwrap(),
-            oauth2::http::HeaderValue::from_str(&header_val).unwrap(),
+            oauth2::http::HeaderName::from_str("Authorization")?,
+            oauth2::http::HeaderValue::from_str(&header_val)?,
         );
 
         let response = curl.send(request).await?;
