@@ -9,9 +9,9 @@ use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::{
     basic::{BasicClient, BasicTokenType},
-    devicecode::StandardDeviceAuthorizationResponse,
-    AccessToken, AuthUrl, ClientId, ClientSecret, DeviceAuthorizationUrl, EmptyExtraTokenFields,
-    HttpRequest, HttpResponse, Scope, StandardTokenResponse, TokenUrl,
+    AccessToken, ClientId, ClientSecret, DeviceAuthorizationUrl, EmptyExtraTokenFields,
+    HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse, StandardTokenResponse,
+    TokenUrl,
 };
 
 // My crates
@@ -74,14 +74,17 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         log::info!(
             "There is no Access token, please login via browser with this link and input the code."
         );
-        let client = self
-            .create_client()?
-            .set_device_authorization_url(self.device_auth_endpoint.to_owned());
-
+        let mut client = BasicClient::new(self.client_id.to_owned());
+        if let Some(client_secret) = self.client_secret.to_owned() {
+            client = client.set_client_secret(client_secret);
+        }
         let device_auth_response = client
-            .exchange_device_code()?
+            .set_auth_type(oauth2::AuthType::RequestBody)
+            .set_token_uri(self.token_endpoint.to_owned())
+            .set_device_authorization_url(self.device_auth_endpoint.to_owned())
+            .exchange_device_code()
             .add_scopes(scopes)
-            .request_async(async_http_callback)
+            .request_async(&async_http_callback)
             .await?;
 
         Ok(device_auth_response)
@@ -95,10 +98,15 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         device_auth_response: StandardDeviceAuthorizationResponse,
         async_http_callback: T,
     ) -> OAuth2Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> {
-        let client = self.create_client()?;
+        let mut client = BasicClient::new(self.client_id.to_owned());
+        if let Some(client_secret) = self.client_secret.to_owned() {
+            client = client.set_client_secret(client_secret);
+        }
         let token_result = client
+            .set_auth_type(oauth2::AuthType::RequestBody)
+            .set_token_uri(self.token_endpoint.to_owned())
             .exchange_device_access_token(&device_auth_response)
-            .request_async(async_http_callback, tokio::time::sleep, None)
+            .request_async(&async_http_callback, tokio::time::sleep, None)
             .await?;
         log::info!("Access token successfuly retrieved from the endpoint.");
         Ok(token_result)
@@ -123,10 +131,15 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                     log::info!(
                         "Access token has expired, contacting endpoint to get a new access token."
                     );
-                    let response = self
-                        .create_client()?
+                    let mut client = BasicClient::new(self.client_id.to_owned());
+                    if let Some(client_secret) = self.client_secret.to_owned() {
+                        client = client.set_client_secret(client_secret);
+                    }
+                    let response = client
+                        .set_auth_type(oauth2::AuthType::RequestBody)
+                        .set_token_uri(self.token_endpoint.to_owned())
                         .exchange_refresh_token(&ref_token)
-                        .request_async(async_http_callback)
+                        .request_async(&async_http_callback)
                         .await;
 
                     match response {
@@ -176,16 +189,6 @@ impl DeviceCodeFlow {
             device_auth_endpoint,
             token_endpoint,
         }
-    }
-
-    fn create_client(&self) -> OAuth2Result<BasicClient> {
-        Ok(BasicClient::new(
-            self.client_id.to_owned(),
-            self.client_secret.to_owned(),
-            AuthUrl::new(self.token_endpoint.to_owned().to_string())?,
-            Some(self.token_endpoint.to_owned()),
-        )
-        .set_auth_type(oauth2::AuthType::RequestBody))
     }
 }
 
