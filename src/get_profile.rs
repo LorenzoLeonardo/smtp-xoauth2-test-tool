@@ -1,6 +1,8 @@
+use std::str::FromStr;
+
 use derive_deref_rs::Deref;
 use http::{HeaderMap, HeaderValue};
-use oauth2::{AccessToken, HttpRequest};
+use oauth2::AccessToken;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -59,16 +61,19 @@ impl Profile {
             "Authorization",
             HeaderValue::from_str(&header_val).map_err(OAuth2Error::from)?,
         );
+        let mut request = oauth2::HttpRequest::new(Vec::new());
+        *request.uri_mut() =
+            oauth2::http::Uri::from_str(&profile_endpoint.0.to_owned().to_string()).unwrap();
+        *request.method_mut() = oauth2::http::Method::GET;
 
-        let request = HttpRequest {
-            url: profile_endpoint.0.to_owned(),
-            method: http::method::Method::GET,
-            headers,
-            body: Vec::new(),
-        };
+        request.headers_mut().insert(
+            oauth2::http::HeaderName::from_str("Authorization").unwrap(),
+            oauth2::http::HeaderValue::from_str(&header_val).unwrap(),
+        );
+
         let response = curl.send(request).await?;
 
-        let body = String::from_utf8(response.body).unwrap_or_default();
+        let body = String::from_utf8(response.body().to_vec()).unwrap_or_default();
 
         let sender_profile: Profile = serde_json::from_str(&body)?;
         let (name, email) = match sender_profile {

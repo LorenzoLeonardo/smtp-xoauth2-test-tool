@@ -63,11 +63,22 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         scopes: Vec<Scope>,
     ) -> OAuth2Result<(Url, CsrfToken)> {
         log::info!("There is no Access token, please login.");
-        let client = self.create_client()?.set_redirect_uri(
-            RedirectUrl::new("http://localhost:8080".to_string()).expect("Invalid redirect URL"),
-        );
-
+        let mut client = BasicClient::new(self.client_id.to_owned());
+        if let Some(client_secret) = self.client_secret.to_owned() {
+            client = client.set_client_secret(client_secret);
+        }
         let (authorize_url, csrf_state) = client
+            .set_redirect_uri(
+                RedirectUrl::new("http://localhost:8080".to_string())
+                    .expect("Invalid redirect URL"),
+            )
+            .set_auth_type(oauth2::AuthType::RequestBody)
+            .set_redirect_uri(
+                RedirectUrl::new("http://localhost:8080".to_string())
+                    .expect("Invalid redirect URL"),
+            )
+            .set_token_uri(self.token_endpoint.to_owned())
+            .set_auth_uri(self.auth_endpoint.to_owned())
             .authorize_url(CsrfToken::new_random)
             .add_scopes(scopes)
             .url();
@@ -86,13 +97,22 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         auth_code: AuthorizationCode,
         async_http_callback: T,
     ) -> OAuth2Result<TokenKeeper> {
-        let client = self.create_client()?.set_redirect_uri(
-            RedirectUrl::new("http://localhost:8080".to_string()).expect("Invalid redirect URL"),
-        );
+        let mut client = BasicClient::new(self.client_id.to_owned());
+        if let Some(client_secret) = self.client_secret.to_owned() {
+            client = client.set_client_secret(client_secret);
+        }
         let token_res = client
+            .set_auth_type(oauth2::AuthType::RequestBody)
+            .set_redirect_uri(
+                RedirectUrl::new("http://localhost:8080".to_string())
+                    .expect("Invalid redirect URL"),
+            )
+            .set_token_uri(self.token_endpoint.to_owned())
+            .set_auth_uri(self.auth_endpoint.to_owned())
             .exchange_code(auth_code)
-            .request_async(async_http_callback)
+            .request_async(&async_http_callback)
             .await?;
+
         let mut token_keeper = TokenKeeper::from(token_res);
         token_keeper.set_directory(file_directory.to_path_buf());
         token_keeper.save(file_name)?;
@@ -119,10 +139,20 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                     log::info!(
                         "Access token has expired, contacting endpoint to get a new access token."
                     );
-                    let response = self
-                        .create_client()?
+                    let mut client = BasicClient::new(self.client_id.to_owned());
+                    if let Some(client_secret) = self.client_secret.to_owned() {
+                        client = client.set_client_secret(client_secret);
+                    }
+                    let response = client
+                        .set_auth_type(oauth2::AuthType::RequestBody)
+                        .set_redirect_uri(
+                            RedirectUrl::new("http://localhost:8080".to_string())
+                                .expect("Invalid redirect URL"),
+                        )
+                        .set_token_uri(self.token_endpoint.to_owned())
+                        .set_auth_uri(self.auth_endpoint.to_owned())
                         .exchange_refresh_token(&ref_token)
-                        .request_async(async_http_callback)
+                        .request_async(&async_http_callback)
                         .await;
 
                     match response {
@@ -172,16 +202,6 @@ impl AuthCodeGrant {
             auth_endpoint,
             token_endpoint,
         }
-    }
-
-    fn create_client(&self) -> OAuth2Result<BasicClient> {
-        Ok(BasicClient::new(
-            self.client_id.to_owned(),
-            self.client_secret.to_owned(),
-            self.auth_endpoint.to_owned(),
-            Some(self.token_endpoint.to_owned()),
-        )
-        .set_auth_type(oauth2::AuthType::RequestBody))
     }
 }
 

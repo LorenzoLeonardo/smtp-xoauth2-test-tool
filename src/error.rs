@@ -1,5 +1,5 @@
 // Standard libraries
-use std::fmt::Debug;
+use std::fmt::{Debug, Display};
 use std::{error::Error, str::FromStr};
 
 use curl_http_client::collector::ExtendedHandler;
@@ -96,7 +96,7 @@ where
 impl<E, O> From<RequestTokenError<E, StandardErrorResponse<O>>> for OAuth2Error
 where
     E: Error + 'static,
-    O: ErrorResponseType + 'static + ToString + Clone,
+    O: ErrorResponseType + 'static + ToString + Clone + Display,
 {
     fn from(e: RequestTokenError<E, StandardErrorResponse<O>>) -> Self {
         match e {
