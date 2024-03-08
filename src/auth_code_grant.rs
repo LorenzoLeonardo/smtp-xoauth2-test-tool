@@ -18,7 +18,7 @@ use crate::curl::Curl;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
 use crate::TokenKeeper;
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait AuthCodeGrantTrait {
     async fn generate_authorization_url(
         &self,
@@ -26,9 +26,9 @@ pub trait AuthCodeGrantTrait {
     ) -> OAuth2Result<(Url, CsrfToken)>;
 
     async fn exchange_auth_code<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         file_directory: &Path,
@@ -38,9 +38,9 @@ pub trait AuthCodeGrantTrait {
     ) -> OAuth2Result<TokenKeeper>;
 
     async fn get_access_token<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         file_directory: &Path,
@@ -56,7 +56,7 @@ pub struct AuthCodeGrant {
     token_endpoint: TokenUrl,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl AuthCodeGrantTrait for AuthCodeGrant {
     async fn generate_authorization_url(
         &self,
@@ -76,9 +76,9 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
     }
 
     async fn exchange_auth_code<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         file_directory: &Path,
@@ -101,9 +101,9 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
     }
 
     async fn get_access_token<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         file_directory: &Path,
