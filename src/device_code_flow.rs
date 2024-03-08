@@ -21,30 +21,30 @@ use crate::{
     error::{ErrorCodes, OAuth2Error, OAuth2Result},
 };
 
-#[async_trait]
+#[async_trait(?Send)]
 pub trait DeviceCodeFlowTrait {
     async fn request_device_code<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         scopes: Vec<Scope>,
         async_http_callback: T,
     ) -> OAuth2Result<StandardDeviceAuthorizationResponse>;
     async fn poll_access_token<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         device_auth_response: StandardDeviceAuthorizationResponse,
         async_http_callback: T,
     ) -> OAuth2Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>>;
     async fn get_access_token<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         file_directory: &Path,
@@ -60,12 +60,12 @@ pub struct DeviceCodeFlow {
     token_endpoint: TokenUrl,
 }
 
-#[async_trait]
+#[async_trait(?Send)]
 impl DeviceCodeFlowTrait for DeviceCodeFlow {
     async fn request_device_code<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         scopes: Vec<Scope>,
@@ -87,9 +87,9 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         Ok(device_auth_response)
     }
     async fn poll_access_token<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         device_auth_response: StandardDeviceAuthorizationResponse,
@@ -105,9 +105,9 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
     }
 
     async fn get_access_token<
-        F: Future<Output = Result<HttpResponse, RE>> + Send,
-        RE: std::error::Error + 'static + Send,
-        T: Fn(HttpRequest) -> F + Send + Sync,
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
     >(
         &self,
         file_directory: &Path,
