@@ -2,17 +2,16 @@
 use std::fmt::{Debug, Display};
 use std::{error::Error, str::FromStr};
 
-use curl_http_client::collector::ExtendedHandler;
-use http::header::InvalidHeaderValue;
-use log::SetLoggerError;
 // 3rd party crates
+use curl_http_client::collector::ExtendedHandler;
+use log::SetLoggerError;
 use oauth2::{
     url, ConfigurationError, ErrorResponseType, RequestTokenError, StandardErrorResponse,
 };
 use serde::{Deserialize, Serialize};
-use strum_macros::EnumString;
+use strum_macros::{Display, EnumString};
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, EnumString)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, EnumString, Display)]
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum ErrorCodes {
@@ -141,11 +140,77 @@ where
     }
 }
 
-impl From<InvalidHeaderValue> for OAuth2Error {
-    fn from(e: InvalidHeaderValue) -> Self {
+impl From<http::header::InvalidHeaderValue> for OAuth2Error {
+    fn from(e: http::header::InvalidHeaderValue) -> Self {
         OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
     }
 }
+
+impl From<http::uri::InvalidUri> for OAuth2Error {
+    fn from(e: http::uri::InvalidUri) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<http::method::InvalidMethod> for OAuth2Error {
+    fn from(e: http::method::InvalidMethod) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<http::header::InvalidHeaderName> for OAuth2Error {
+    fn from(e: http::header::InvalidHeaderName) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<http::header::ToStrError> for OAuth2Error {
+    fn from(e: http::header::ToStrError) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<oauth2::http::header::ToStrError> for OAuth2Error {
+    fn from(e: oauth2::http::header::ToStrError) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<oauth2::http::status::InvalidStatusCode> for OAuth2Error {
+    fn from(e: oauth2::http::status::InvalidStatusCode) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<oauth2::http::header::InvalidHeaderName> for OAuth2Error {
+    fn from(e: oauth2::http::header::InvalidHeaderName) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<oauth2::http::header::InvalidHeaderValue> for OAuth2Error {
+    fn from(e: oauth2::http::header::InvalidHeaderValue) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<oauth2::http::uri::InvalidUri> for OAuth2Error {
+    fn from(e: oauth2::http::uri::InvalidUri) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl std::fmt::Display for OAuth2Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "ErrorCode: {} Description: {}",
+            self.error_code, self.error_code_desc
+        )
+    }
+}
+
+impl std::error::Error for OAuth2Error {}
 
 pub type OAuth2Result<T> = Result<T, OAuth2Error>;
 
