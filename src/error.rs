@@ -15,39 +15,53 @@ use strum_macros::{Display, EnumString};
 #[serde(rename_all = "snake_case")]
 #[strum(serialize_all = "snake_case")]
 pub enum ErrorCodes {
-    BadRequest,
-    Unauthorized,
-    Forbidden,
-    InvalidRequest,
-    UnauthorizedClient,
+    // Cloud error codes
     AccessDenied,
-    UnsupportedResponseType,
-    InvalidScope,
-    ServerError,
-    TemporarilyUnavailable,
+    AuthorizationDeclined,
+    AuthorizationPending,
+    BadVerificationCode,
+    BadRequest,
+    ConsentRequired,
+    ExpiredToken,
+    Forbidden,
+    InsufficientScope,
+    InteractionRequired,
     InvalidClient,
     InvalidGrant,
-    UnsupportedTokenType,
-    UnsupportedGrantType,
-    AuthorizationPending,
-    AuthorizationDeclined,
-    SlowDown,
-    ExpiredToken,
-    InteractionRequired,
+    InvalidRedirectUri,
+    InvalidResource,
+    InvalidRequest,
+    InvalidScope,
+    InvalidToken,
     LoginRequired,
+    MappingError,
+    ServerError,
+    SlowDown,
+    TemporarilyUnavailable,
+    Unauthorized,
+    UnauthorizedClient,
+    UnsupportedGrantType,
+    UnsupportedResponseType,
+    UnsupportedTokenType,
+
+    // Local error codes
     ConfigurationError,
-    UrlParseError,
-    SerdeJsonParseError,
-    IoError,
-    NoToken,
-    RequestError,
-    ParseError,
-    InvalidParameters,
-    LoggerError,
+    CurlError,
     DirectoryError,
     HttpError,
-    CurlError,
+    InvalidParameters,
+    IoError,
+    LoggerError,
+    MultiError,
+    NoToken,
     OtherError,
+    ParseError,
+    PerformError,
+    RequestError,
+    SerdeJsonParseError,
+    TokioRecv,
+    TokioSend,
+    UrlParseError,
 }
 
 impl From<String> for ErrorCodes {
@@ -56,7 +70,7 @@ impl From<String> for ErrorCodes {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize)]
 pub struct OAuth2Error {
     pub error_code: ErrorCodes,
     pub error_code_desc: String,
@@ -100,7 +114,11 @@ where
     fn from(e: RequestTokenError<E, StandardErrorResponse<O>>) -> Self {
         match e {
             RequestTokenError::ServerResponse(err) => {
-                OAuth2Error::new(ErrorCodes::from(err.clone()), format!("{:?}", err))
+                let desc = err
+                    .error_description()
+                    .map(|ret| ret.to_string())
+                    .unwrap_or_default();
+                OAuth2Error::new(ErrorCodes::from(err.clone()), desc)
             }
             RequestTokenError::Request(err) => {
                 OAuth2Error::new(ErrorCodes::RequestError, err.to_string())
@@ -136,7 +154,31 @@ where
     C: ExtendedHandler + Debug + Send + 'static,
 {
     fn from(e: curl_http_client::error::Error<C>) -> Self {
-        OAuth2Error::new(ErrorCodes::CurlError, e.to_string())
+        match e {
+            curl_http_client::error::Error::Curl(err) => {
+                OAuth2Error::new(ErrorCodes::CurlError, err.description().to_owned())
+            }
+            curl_http_client::error::Error::Http(err) => {
+                OAuth2Error::new(ErrorCodes::HttpError, err)
+            }
+            curl_http_client::error::Error::Perform(err) => match err {
+                async_curl::error::Error::Curl(err) => {
+                    OAuth2Error::new(ErrorCodes::CurlError, err.description().to_owned())
+                }
+                async_curl::error::Error::Multi(err) => {
+                    OAuth2Error::new(ErrorCodes::MultiError, err.description().to_owned())
+                }
+                async_curl::error::Error::TokioRecv(err) => {
+                    OAuth2Error::new(ErrorCodes::TokioRecv, err.to_string())
+                }
+                async_curl::error::Error::TokioSend(err) => {
+                    OAuth2Error::new(ErrorCodes::TokioSend, err.to_string())
+                }
+            },
+            curl_http_client::error::Error::Other(err) => {
+                OAuth2Error::new(ErrorCodes::OtherError, err)
+            }
+        }
     }
 }
 
@@ -172,11 +214,19 @@ impl From<http::header::ToStrError> for OAuth2Error {
 
 impl std::fmt::Display for OAuth2Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "ErrorCode: {} Description: {}",
-            self.error_code, self.error_code_desc
-        )
+        f.debug_struct("OAuth2Error")
+            .field("error_code", &self.error_code.to_string())
+            .field("error_code_desc", &self.error_code_desc)
+            .finish()
+    }
+}
+
+impl Debug for OAuth2Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OAuth2Error")
+            .field("error_code", &self.error_code.to_string())
+            .field("error_code_desc", &self.error_code_desc)
+            .finish()
     }
 }
 
