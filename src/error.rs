@@ -170,36 +170,6 @@ impl From<http::header::ToStrError> for OAuth2Error {
     }
 }
 
-impl From<oauth2::http::header::ToStrError> for OAuth2Error {
-    fn from(e: oauth2::http::header::ToStrError) -> Self {
-        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
-    }
-}
-
-impl From<oauth2::http::status::InvalidStatusCode> for OAuth2Error {
-    fn from(e: oauth2::http::status::InvalidStatusCode) -> Self {
-        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
-    }
-}
-
-impl From<oauth2::http::header::InvalidHeaderName> for OAuth2Error {
-    fn from(e: oauth2::http::header::InvalidHeaderName) -> Self {
-        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
-    }
-}
-
-impl From<oauth2::http::header::InvalidHeaderValue> for OAuth2Error {
-    fn from(e: oauth2::http::header::InvalidHeaderValue) -> Self {
-        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
-    }
-}
-
-impl From<oauth2::http::uri::InvalidUri> for OAuth2Error {
-    fn from(e: oauth2::http::uri::InvalidUri) -> Self {
-        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
-    }
-}
-
 impl std::fmt::Display for OAuth2Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(

@@ -15,7 +15,7 @@ env_logger = "0.11"
 http = "1.1"
 log = "0.4"
 mail-send = "0.4"
-oauth2 = { version = "5.0.0-alpha.2", default-features = false }
+oauth2 = { git = "https://github.com/ramosbugs/oauth2-rs", branch = "http-1.0", default-features = false }
 serde = "1.0"
 serde_json = "1.0"
 strum = "0.26"
