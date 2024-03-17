@@ -15,20 +15,6 @@ impl Curl {
         }
     }
 
-    fn to_curl_request(request: oauth2::HttpRequest) -> http::Request<Option<Vec<u8>>> {
-        request.map(|req| if req.is_empty() { None } else { Some(req) })
-    }
-
-    fn to_oauth_response(response: http::Response<Option<Vec<u8>>>) -> oauth2::HttpResponse {
-        response.map(|resp| {
-            if let Some(resp) = resp {
-                resp
-            } else {
-                Vec::new()
-            }
-        })
-    }
-
     pub async fn send(
         &self,
         request: oauth2::HttpRequest,
@@ -39,11 +25,17 @@ impl Curl {
         log::debug!("Request Body: {}", String::from_utf8_lossy(request.body()));
 
         let response = HttpClient::new(Collector::RamAndHeaders(Vec::new(), Vec::new()))
-            .request(Curl::to_curl_request(request))?
+            .request(request)?
             .nonblocking(self.actor_handle.clone())
             .perform()
-            .await
-            .map(Curl::to_oauth_response)?;
+            .await?
+            .map(|resp| {
+                if let Some(resp) = resp {
+                    resp
+                } else {
+                    Vec::new()
+                }
+            });
 
         log::debug!("Response Status: {}", response.status());
         log::debug!("Response Header: {:?}", response.headers());
