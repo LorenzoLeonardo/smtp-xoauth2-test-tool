@@ -8,11 +8,16 @@ use std::{
 use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::{
-    basic::{BasicClient, BasicTokenType},
-    AccessToken, ClientId, ClientSecret, DeviceAuthorizationUrl, EmptyExtraTokenFields,
-    HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse, StandardTokenResponse,
-    TokenUrl,
+    basic::{
+        BasicClient, BasicErrorResponse, BasicRevocationErrorResponse,
+        BasicTokenIntrospectionResponse, BasicTokenType,
+    },
+    AccessToken, Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet,
+    ExtraTokenFields, HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse,
+    StandardRevocableToken, StandardTokenResponse, TokenUrl,
 };
+use openidconnect::{core::CoreIdToken, Nonce};
+use serde::{Deserialize, Serialize};
 
 // My crates
 use crate::TokenKeeper;
@@ -40,7 +45,7 @@ pub trait DeviceCodeFlowTrait {
         &self,
         device_auth_response: StandardDeviceAuthorizationResponse,
         async_http_callback: T,
-    ) -> OAuth2Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>>;
+    ) -> OAuth2Result<CustomTokenResponse>;
     async fn get_access_token<
         F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
@@ -60,6 +65,34 @@ pub struct DeviceCodeFlow {
     token_endpoint: TokenUrl,
 }
 
+#[derive(Serialize, Deserialize, Debug)]
+pub struct CustomExtraFields {
+    pub id_token: CoreIdToken,
+}
+
+pub type CustomTokenResponse = StandardTokenResponse<CustomExtraFields, BasicTokenType>;
+
+impl ExtraTokenFields for CustomExtraFields {}
+
+pub type CustomClient<
+    HasAuthUrl = EndpointNotSet,
+    HasDeviceAuthUrl = EndpointNotSet,
+    HasIntrospectionUrl = EndpointNotSet,
+    HasRevocationUrl = EndpointNotSet,
+    HasTokenUrl = EndpointNotSet,
+> = Client<
+    BasicErrorResponse,
+    CustomTokenResponse,
+    BasicTokenIntrospectionResponse,
+    StandardRevocableToken,
+    BasicRevocationErrorResponse,
+    HasAuthUrl,
+    HasDeviceAuthUrl,
+    HasIntrospectionUrl,
+    HasRevocationUrl,
+    HasTokenUrl,
+>;
+
 #[async_trait(?Send)]
 impl DeviceCodeFlowTrait for DeviceCodeFlow {
     async fn request_device_code<
@@ -74,16 +107,18 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         log::info!(
             "There is no Access token, please login via browser with this link and input the code."
         );
-        let mut client = BasicClient::new(self.client_id.to_owned());
+        let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
+        let nonce = Nonce::new_random_len(32);
         let device_auth_response = client
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_token_uri(self.token_endpoint.to_owned())
             .set_device_authorization_url(self.device_auth_endpoint.to_owned())
             .exchange_device_code()
             .add_scopes(scopes)
+            .add_extra_param("nonce", nonce.secret().as_str())
             .request_async(&async_http_callback)
             .await?;
 
@@ -97,8 +132,8 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         &self,
         device_auth_response: StandardDeviceAuthorizationResponse,
         async_http_callback: T,
-    ) -> OAuth2Result<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> {
-        let mut client = BasicClient::new(self.client_id.to_owned());
+    ) -> OAuth2Result<CustomTokenResponse> {
+        let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
@@ -216,6 +251,8 @@ pub async fn device_code_flow(
     directory = directory.join("token");
 
     let token_file = PathBuf::from(format!("{}_device_code_flow.json", client_id));
+    log::debug!("Path: {:?}", token_file);
+    log::debug!("Directory: {:?}", directory);
     let mut token_keeper = TokenKeeper::new(directory.to_path_buf());
 
     // If there is no exsting token, get it from the cloud
