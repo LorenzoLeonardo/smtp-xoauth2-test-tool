@@ -1,0 +1,69 @@
+use oauth2::{ClientId, ClientSecret};
+use openidconnect::{
+    core::{CoreIdToken, CoreIdTokenClaims, CoreIdTokenVerifier, CoreProviderMetadata},
+    NonceVerifier,
+};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+
+use crate::{curl::Curl, error::OAuth2Result};
+
+#[derive(Serialize, Deserialize, Debug, Default)]
+pub struct ApplicationNonce(String);
+
+impl ApplicationNonce {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn from(nonce: String) -> Self {
+        Self(nonce)
+    }
+}
+
+impl NonceVerifier for ApplicationNonce {
+    fn verify(self, nonce: Option<&openidconnect::Nonce>) -> Result<(), String> {
+        if let Some(claims_nonce) = nonce {
+            // Avoid timing side-channel.
+            if !self.0.is_empty() {
+                if Sha256::digest(claims_nonce.secret()) != Sha256::digest(self.0) {
+                    return Err("nonce mismatch".to_string());
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+pub async fn verify_id_token(
+    client_id: ClientId,
+    client_secret: Option<ClientSecret>,
+    id_token: CoreIdToken,
+    app_nonce: ApplicationNonce,
+    curl: Curl,
+) -> OAuth2Result<CoreIdTokenClaims> {
+    let verifier = CoreIdTokenVerifier::new_insecure_without_verification();
+    let unverified_claims = id_token.claims(&verifier, ApplicationNonce::new())?;
+
+    let url = unverified_claims.issuer();
+    let provider_metadata = CoreProviderMetadata::discover_async(url.clone(), &|request| async {
+        curl.send(request).await
+    })
+    .await?;
+
+    let json_web_key_set = provider_metadata.jwks();
+
+    let verifier = if let Some(secret) = client_secret {
+        CoreIdTokenVerifier::new_confidential_client(
+            client_id,
+            secret,
+            url.clone(),
+            json_web_key_set.clone(),
+        )
+    } else {
+        CoreIdTokenVerifier::new_public_client(client_id, url.clone(), json_web_key_set.clone())
+    };
+
+    let verified_claims = id_token.claims(&verifier, app_nonce)?.clone();
+    Ok(verified_claims)
+}
