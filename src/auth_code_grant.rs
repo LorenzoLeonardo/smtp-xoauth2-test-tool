@@ -168,7 +168,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                             if error.error_code == ErrorCodes::InvalidGrant {
                                 let file = TokenKeeper::new(file_directory.to_path_buf());
                                 if let Err(e) = file.delete(file_name) {
-                                    log::error!("{:?}", e);
+                                    log::error!("{e:?}");
                                 }
                             }
                             Err(error)
@@ -231,14 +231,14 @@ pub async fn auth_code_grant(
 
     directory = directory.join("token");
 
-    let token_file = PathBuf::from(format!("{}_auth_code_grant.json", client_id));
+    let token_file = PathBuf::from(format!("{client_id}_auth_code_grant.json"));
     let mut token_keeper = TokenKeeper::new(directory.to_path_buf());
 
     // If there is no exsting token, get it from the cloud
     if let Err(_err) = token_keeper.read(&token_file) {
         let (authorize_url, _csrf_state) =
             auth_code_grant.generate_authorization_url(scopes).await?;
-        log::info!("Open this URL in your browser: {}", authorize_url);
+        log::info!("Open this URL in your browser: {authorize_url}");
 
         let listener = TcpListener::bind("0.0.0.0:8080")?;
         if let Some(mut stream) = listener.incoming().flatten().next() {

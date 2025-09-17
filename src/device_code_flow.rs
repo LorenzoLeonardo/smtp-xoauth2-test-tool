@@ -187,7 +187,7 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                             if error.error_code == ErrorCodes::InvalidGrant {
                                 let file = TokenKeeper::new(file_directory.to_path_buf());
                                 if let Err(e) = file.delete(file_name) {
-                                    log::error!("{:?}", e);
+                                    log::error!("{e:?}");
                                 }
                             }
                             Err(error)
@@ -250,9 +250,9 @@ pub async fn device_code_flow(
 
     directory = directory.join("token");
 
-    let token_file = PathBuf::from(format!("{}_device_code_flow.json", client_id));
-    log::debug!("Path: {:?}", token_file);
-    log::debug!("Directory: {:?}", directory);
+    let token_file = PathBuf::from(format!("{client_id}_device_code_flow.json"));
+    log::debug!("Path: {token_file:?}");
+    log::debug!("Directory: {directory:?}");
     let mut token_keeper = TokenKeeper::new(directory.to_path_buf());
 
     // If there is no exsting token, get it from the cloud
