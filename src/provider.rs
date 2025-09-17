@@ -1,11 +1,11 @@
 use std::path::{Path, PathBuf};
 
-use oauth2::{url::Url, AuthUrl, DeviceAuthorizationUrl, Scope, TokenUrl};
+use oauth2::{AuthUrl, DeviceAuthorizationUrl, Scope, TokenUrl, url::Url};
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    error::{ErrorCodes, OAuth2Error, OAuth2Result},
     ParamIndex,
+    error::{ErrorCodes, OAuth2Error, OAuth2Result},
 };
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash, Default)]

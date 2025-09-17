@@ -1,7 +1,7 @@
 use oauth2::{ClientId, ClientSecret};
 use openidconnect::{
-    core::{CoreIdToken, CoreIdTokenClaims, CoreIdTokenVerifier, CoreProviderMetadata},
     NonceVerifier,
+    core::{CoreIdToken, CoreIdTokenClaims, CoreIdTokenVerifier, CoreProviderMetadata},
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};

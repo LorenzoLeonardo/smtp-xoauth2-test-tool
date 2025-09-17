@@ -9,15 +9,15 @@ use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::AuthorizationCode;
 use oauth2::{
-    url::Url, AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest, HttpResponse, RedirectUrl,
-    Scope, TokenUrl,
+    AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest, HttpResponse, RedirectUrl, Scope,
+    TokenUrl, url::Url,
 };
 
 // My crates
+use crate::TokenKeeper;
 use crate::curl::Curl;
 use crate::device_code_flow::CustomClient;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
-use crate::TokenKeeper;
 
 #[async_trait(?Send)]
 pub trait AuthCodeGrantTrait {
@@ -176,7 +176,9 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                     }
                 }
                 None => {
-                    log::info!("Access token has expired but there is no refresh token, please login again.");
+                    log::info!(
+                        "Access token has expired but there is no refresh token, please login again."
+                    );
                     token_keeper.delete(file_name)?;
                     Err(OAuth2Error::new(
                         ErrorCodes::NoToken,

@@ -1,4 +1,4 @@
-use mail_send::{mail_builder::MessageBuilder, Credentials, SmtpClientBuilder};
+use mail_send::{Credentials, SmtpClientBuilder, mail_builder::MessageBuilder};
 use oauth2::AccessToken;
 
 use crate::{

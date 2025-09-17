@@ -28,7 +28,7 @@ use error::{ErrorCodes, OAuth2Error};
 use provider::Provider;
 use token_keeper::TokenKeeper;
 
-use crate::openid::{verify_id_token, ApplicationNonce};
+use crate::openid::{ApplicationNonce, verify_id_token};
 
 enum ParamIndex {
     Provider = 1,
@@ -83,7 +83,9 @@ fn init_logger(level: &str) {
 fn check_args(args: &[String]) -> OAuth2Result<()> {
     if args.len() < ParamIndex::DebugLevel as usize {
         eprintln!("How to use this tool?\n");
-        eprintln!("Execute: cargo run <provider> <access token grant type> <client id> <client secret> <recipient email> <recipient name> <debug log level>");
+        eprintln!(
+            "Execute: cargo run <provider> <access token grant type> <client id> <client secret> <recipient email> <recipient name> <debug log level>"
+        );
         Err(OAuth2Error::new(
             ErrorCodes::InvalidParameters,
             String::from("Lacking parameters"),
