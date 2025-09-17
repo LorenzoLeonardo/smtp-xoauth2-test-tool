@@ -8,13 +8,13 @@ use std::{
 use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::{
+    Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet, ExtraTokenFields,
+    HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse, StandardRevocableToken,
+    StandardTokenResponse, TokenUrl,
     basic::{
         BasicErrorResponse, BasicRevocationErrorResponse, BasicTokenIntrospectionResponse,
         BasicTokenType,
     },
-    Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet, ExtraTokenFields,
-    HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse, StandardRevocableToken,
-    StandardTokenResponse, TokenUrl,
 };
 use openidconnect::core::CoreIdToken;
 use serde::{Deserialize, Serialize};
@@ -195,7 +195,9 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                     }
                 }
                 None => {
-                    log::info!("Access token has expired but there is no refresh token, please login again.");
+                    log::info!(
+                        "Access token has expired but there is no refresh token, please login again."
+                    );
                     token_keeper.delete(file_name)?;
                     Err(OAuth2Error::new(
                         ErrorCodes::NoToken,
