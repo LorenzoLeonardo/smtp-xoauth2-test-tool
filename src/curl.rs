@@ -29,13 +29,7 @@ impl Curl {
             .nonblocking(self.actor_handle.clone())
             .perform()
             .await?
-            .map(|resp| {
-                if let Some(resp) = resp {
-                    resp
-                } else {
-                    Vec::new()
-                }
-            });
+            .map(|resp| resp.unwrap_or_default());
 
         log::debug!("Response Status: {}", response.status());
         log::debug!("Response Header: {:?}", response.headers());
