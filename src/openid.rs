@@ -27,9 +27,16 @@ impl NonceVerifier for ApplicationNonce {
             // Avoid timing side-channel.
             if !self.0.is_empty() {
                 if Sha256::digest(claims_nonce.secret()) != Sha256::digest(self.0) {
+                    log::info!("Nonce mismatch!");
                     return Err("nonce mismatch".to_string());
+                } else {
+                    log::info!("Nonce match!")
                 }
+            } else {
+                log::info!("There is no application side nonce used.");
             }
+        } else {
+            log::info!("The server didn't give some Nonce.");
         }
         Ok(())
     }
@@ -54,6 +61,7 @@ pub async fn verify_id_token(
     let json_web_key_set = provider_metadata.jwks();
 
     let verifier = if let Some(secret) = client_secret {
+        log::info!("Has client secret use => CoreIdTokenVerifier::new_confidential_client");
         CoreIdTokenVerifier::new_confidential_client(
             client_id,
             secret,
@@ -61,6 +69,7 @@ pub async fn verify_id_token(
             json_web_key_set.clone(),
         )
     } else {
+        log::info!("No client secret use => CoreIdTokenVerifier::new_public_client");
         CoreIdTokenVerifier::new_public_client(client_id, url.clone(), json_web_key_set.clone())
     };
 
