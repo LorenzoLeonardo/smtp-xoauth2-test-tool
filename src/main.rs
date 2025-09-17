@@ -3,7 +3,6 @@ mod curl;
 pub mod device_code_flow;
 mod emailer;
 mod error;
-mod get_profile;
 mod openid;
 mod provider;
 mod token_keeper;
@@ -15,11 +14,9 @@ use std::str::FromStr;
 
 // 3rd party crates
 use chrono::Local;
-use core::panic;
 use curl::Curl;
-use get_profile::Profile;
 use log::LevelFilter;
-use oauth2::ClientSecret;
+use oauth2::{ClientId, ClientSecret};
 use strum_macros::EnumString;
 
 // My crates
@@ -30,6 +27,8 @@ use error::OAuth2Result;
 use error::{ErrorCodes, OAuth2Error};
 use provider::Provider;
 use token_keeper::TokenKeeper;
+
+use crate::openid::{verify_id_token, ApplicationNonce};
 
 enum ParamIndex {
     Provider = 1,
@@ -118,12 +117,12 @@ async fn main() -> OAuth2Result<()> {
     log::info!("SMTP Test Tool v{} has started...", version);
 
     let curl = Curl::new();
-    let access_token =
+    let token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
                 auth_code_grant(
                     client_id,
-                    client_secret,
+                    client_secret.clone(),
                     provider.authorization_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
@@ -134,7 +133,7 @@ async fn main() -> OAuth2Result<()> {
             OAuth2TokenGrantFlow::DeviceCodeFlow => {
                 device_code_flow(
                     client_id,
-                    client_secret,
+                    client_secret.clone(),
                     provider.device_auth_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
@@ -144,16 +143,30 @@ async fn main() -> OAuth2Result<()> {
             }
         };
 
-    let (sender_name, sender_email) = match args[ParamIndex::Provider as usize].as_str() {
-        "Microsoft" | "Google" => {
-            Profile::get_sender_profile(&access_token, &provider.profile_endpoint, curl).await?
-        }
-        &_ => panic!("Wrong provider"),
+    let claims = verify_id_token(
+        ClientId::new(client_id.to_string()),
+        client_secret,
+        token.id_token.unwrap(),
+        ApplicationNonce::new(),
+        curl.clone(),
+    )
+    .await?;
+    let name = if let Some(name) = claims.name() {
+        name.get(None).unwrap().to_string()
+    } else {
+        log::error!("No name");
+        return Ok(());
     };
 
+    let email = if let Some(name) = claims.email() {
+        name.to_string()
+    } else {
+        log::error!("No email");
+        return Ok(());
+    };
     Emailer::new(provider.smtp_server, provider.smtp_server_port)
-        .set_sender(sender_name.0, sender_email.0)
+        .set_sender(name, email)
         .add_recipient(recipient_name.into(), recipient_email.into())
-        .send_email(access_token)
+        .send_email(token.access_token)
         .await
 }

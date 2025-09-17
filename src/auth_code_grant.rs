@@ -7,11 +7,11 @@ use std::{future::Future, path::Path};
 // 3rd party crates
 use async_trait::async_trait;
 use directories::UserDirs;
+use oauth2::AuthorizationCode;
 use oauth2::{
     basic::BasicClient, url::Url, AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest,
     HttpResponse, RedirectUrl, Scope, TokenUrl,
 };
-use oauth2::{AccessToken, AuthorizationCode};
 
 // My crates
 use crate::curl::Curl;
@@ -212,7 +212,7 @@ pub async fn auth_code_grant(
     token_url: TokenUrl,
     scopes: Vec<Scope>,
     curl: Curl,
-) -> OAuth2Result<AccessToken> {
+) -> OAuth2Result<TokenKeeper> {
     let auth_code_grant = AuthCodeGrant::new(
         ClientId::new(client_id.to_string()),
         client_secret,
@@ -313,5 +313,5 @@ pub async fn auth_code_grant(
             })
             .await?;
     }
-    Ok(token_keeper.access_token)
+    Ok(token_keeper)
 }

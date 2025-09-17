@@ -9,14 +9,14 @@ use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::{
     basic::{
-        BasicClient, BasicErrorResponse, BasicRevocationErrorResponse,
-        BasicTokenIntrospectionResponse, BasicTokenType,
+        BasicErrorResponse, BasicRevocationErrorResponse, BasicTokenIntrospectionResponse,
+        BasicTokenType,
     },
-    AccessToken, Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet,
-    ExtraTokenFields, HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse,
-    StandardRevocableToken, StandardTokenResponse, TokenUrl,
+    Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet, ExtraTokenFields,
+    HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse, StandardRevocableToken,
+    StandardTokenResponse, TokenUrl,
 };
-use openidconnect::{core::CoreIdToken, Nonce};
+use openidconnect::core::CoreIdToken;
 use serde::{Deserialize, Serialize};
 
 // My crates
@@ -111,14 +111,12 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
-        let nonce = Nonce::new_random_len(32);
         let device_auth_response = client
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_token_uri(self.token_endpoint.to_owned())
             .set_device_authorization_url(self.device_auth_endpoint.to_owned())
             .exchange_device_code()
             .add_scopes(scopes)
-            .add_extra_param("nonce", nonce.secret().as_str())
             .request_async(&async_http_callback)
             .await?;
 
@@ -166,7 +164,7 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                     log::info!(
                         "Access token has expired, contacting endpoint to get a new access token."
                     );
-                    let mut client = BasicClient::new(self.client_id.to_owned());
+                    let mut client = CustomClient::new(self.client_id.to_owned());
                     if let Some(client_secret) = self.client_secret.to_owned() {
                         client = client.set_client_secret(client_secret);
                     }
@@ -234,7 +232,7 @@ pub async fn device_code_flow(
     token_endpoint: TokenUrl,
     scopes: Vec<Scope>,
     curl: Curl,
-) -> OAuth2Result<AccessToken> {
+) -> OAuth2Result<TokenKeeper> {
     let oauth2_cloud = DeviceCodeFlow::new(
         ClientId::new(client_id.to_string()),
         client_secret,
@@ -286,5 +284,5 @@ pub async fn device_code_flow(
             })
             .await?;
     }
-    Ok(token_keeper.access_token)
+    Ok(token_keeper)
 }
