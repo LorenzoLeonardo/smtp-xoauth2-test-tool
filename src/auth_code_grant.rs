@@ -9,12 +9,13 @@ use async_trait::async_trait;
 use directories::UserDirs;
 use oauth2::AuthorizationCode;
 use oauth2::{
-    basic::BasicClient, url::Url, AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest,
-    HttpResponse, RedirectUrl, Scope, TokenUrl,
+    url::Url, AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest, HttpResponse, RedirectUrl,
+    Scope, TokenUrl,
 };
 
 // My crates
 use crate::curl::Curl;
+use crate::device_code_flow::CustomClient;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
 use crate::TokenKeeper;
 
@@ -63,7 +64,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         scopes: Vec<Scope>,
     ) -> OAuth2Result<(Url, CsrfToken)> {
         log::info!("There is no Access token, please login.");
-        let mut client = BasicClient::new(self.client_id.to_owned());
+        let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
@@ -97,7 +98,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         auth_code: AuthorizationCode,
         async_http_callback: T,
     ) -> OAuth2Result<TokenKeeper> {
-        let mut client = BasicClient::new(self.client_id.to_owned());
+        let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
@@ -139,7 +140,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                     log::info!(
                         "Access token has expired, contacting endpoint to get a new access token."
                     );
-                    let mut client = BasicClient::new(self.client_id.to_owned());
+                    let mut client = CustomClient::new(self.client_id.to_owned());
                     if let Some(client_secret) = self.client_secret.to_owned() {
                         client = client.set_client_secret(client_secret);
                     }
@@ -240,7 +241,7 @@ pub async fn auth_code_grant(
             authorize_url.to_string()
         );
 
-        let listener = TcpListener::bind("127.0.0.1:8080")?;
+        let listener = TcpListener::bind("0.0.0.0:8080")?;
         if let Some(mut stream) = listener.incoming().flatten().next() {
             let code;
             let _state;
@@ -258,7 +259,7 @@ pub async fn auth_code_grant(
                             ErrorCodes::UrlParseError,
                             "No redirect URL found.".to_string(),
                         ))?;
-                let url = Url::parse(&("http://localhost".to_string() + redirect_url))?;
+                let url = Url::parse(&("http://localhost:8080".to_string() + redirect_url))?;
 
                 let code_pair = url
                     .query_pairs()
