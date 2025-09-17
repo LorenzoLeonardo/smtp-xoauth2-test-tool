@@ -2,7 +2,7 @@
     "authorization_endpoint":"https://accounts.google.com/o/oauth2/v2/auth",
     "token_endpoint":"https://oauth2.googleapis.com/token",
     "device_auth_endpoint":"https://oauth2.googleapis.com/device/code",
-    "scopes":["email","https://www.googleapis.com/auth/userinfo.profile","https://mail.google.com"],
+    "scopes":["email","https://www.googleapis.com/auth/userinfo.profile","https://mail.google.com", "openid", "profile"],
     "smtp_server":"smtp.gmail.com",
     "smtp_server_port":587,
     "profile_endpoint":"https://www.googleapis.com/oauth2/v1/userinfo"
