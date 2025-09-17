@@ -166,6 +166,13 @@ async fn main() -> OAuth2Result<()> {
         log::error!("No email");
         return Ok(());
     };
+    log::info!(
+        "***********************************************************************************************************************"
+    );
+    log::info!("Hi {name} ({email}), Welcome to our SMTP XOAuth2 Emailing System.");
+    log::info!(
+        "***********************************************************************************************************************"
+    );
     Emailer::new(provider.smtp_server, provider.smtp_server_port)
         .set_sender(name, email)
         .add_recipient(recipient_name.into(), recipient_email.into())

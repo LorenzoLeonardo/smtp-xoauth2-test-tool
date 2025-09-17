@@ -49,6 +49,7 @@ pub async fn verify_id_token(
     app_nonce: ApplicationNonce,
     curl: Curl,
 ) -> OAuth2Result<CoreIdTokenClaims> {
+    log::info!("Verifying logged-in user . . .");
     let verifier = CoreIdTokenVerifier::new_insecure_without_verification();
     let unverified_claims = id_token.claims(&verifier, ApplicationNonce::new())?;
 
@@ -74,5 +75,6 @@ pub async fn verify_id_token(
     };
 
     let verified_claims = id_token.claims(&verifier, app_nonce)?.clone();
+    log::info!("Verifying logged-in user successfull!");
     Ok(verified_claims)
 }
