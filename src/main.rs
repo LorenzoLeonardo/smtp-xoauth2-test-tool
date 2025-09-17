@@ -58,10 +58,10 @@ fn init_logger(level: &str) {
     let mut log_builder = env_logger::Builder::new();
     log_builder.format(|buf, record| {
         let mut module = "";
-        if let Some(path) = record.module_path() {
-            if let Some(split) = path.split("::").last() {
-                module = split;
-            }
+        if let Some(path) = record.module_path()
+            && let Some(split) = path.split("::").last()
+        {
+            module = split;
         }
 
         writeln!(
@@ -76,7 +76,7 @@ fn init_logger(level: &str) {
 
     log_builder.filter_level(LevelFilter::from_str(level).unwrap_or(LevelFilter::Info));
     if let Err(e) = log_builder.try_init() {
-        log::error!("{:?}", e);
+        log::error!("{e:?}");
     }
 }
 
@@ -116,7 +116,7 @@ async fn main() -> OAuth2Result<()> {
     }
 
     let version = env!("CARGO_PKG_VERSION");
-    log::info!("SMTP Test Tool v{} has started...", version);
+    log::info!("SMTP Test Tool v{version} has started...");
 
     let curl = Curl::new();
     let token =
