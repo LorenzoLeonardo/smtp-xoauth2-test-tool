@@ -4,6 +4,7 @@ pub mod device_code_flow;
 mod emailer;
 mod error;
 mod get_profile;
+mod openid;
 mod provider;
 mod token_keeper;
 

@@ -8,6 +8,7 @@ use log::SetLoggerError;
 use oauth2::{
     url, ConfigurationError, ErrorResponseType, RequestTokenError, StandardErrorResponse,
 };
+use openidconnect::{ClaimsVerificationError, DiscoveryError};
 use serde::{Deserialize, Serialize};
 use strum_macros::{Display, EnumString};
 
@@ -62,6 +63,8 @@ pub enum ErrorCodes {
     TokioRecv,
     TokioSend,
     UrlParseError,
+    DiscoveryError,
+    ClaimsVerificationError,
 }
 
 impl From<String> for ErrorCodes {
@@ -209,6 +212,18 @@ impl From<http::header::InvalidHeaderName> for OAuth2Error {
 impl From<http::header::ToStrError> for OAuth2Error {
     fn from(e: http::header::ToStrError) -> Self {
         OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
+    }
+}
+
+impl From<DiscoveryError<OAuth2Error>> for OAuth2Error {
+    fn from(e: DiscoveryError<OAuth2Error>) -> Self {
+        OAuth2Error::new(ErrorCodes::DiscoveryError, e.to_string())
+    }
+}
+
+impl From<ClaimsVerificationError> for OAuth2Error {
+    fn from(e: ClaimsVerificationError) -> Self {
+        OAuth2Error::new(ErrorCodes::ClaimsVerificationError, e.to_string())
     }
 }
 

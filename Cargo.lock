@@ -2518,6 +2518,7 @@ dependencies = [
  "openidconnect",
  "serde",
  "serde_json",
+ "sha2",
  "strum",
  "strum_macros",
  "thiserror 2.0.16",
