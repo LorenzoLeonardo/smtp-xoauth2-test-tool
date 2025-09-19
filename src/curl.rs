@@ -1,5 +1,4 @@
-use async_curl::actor::CurlActor;
-use curl_http_client::{collector::Collector, http_client::HttpClient};
+use curl_http_client::{collector::Collector, dep::async_curl::CurlActor, http_client::HttpClient};
 
 use crate::error::OAuth2Error;
 
