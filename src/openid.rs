@@ -1,3 +1,4 @@
+use chrono::Utc;
 use oauth2::{ClientId, ClientSecret};
 use openidconnect::{
     NonceVerifier,
@@ -60,7 +61,7 @@ pub async fn verify_id_token(
     .await?;
 
     let json_web_key_set = provider_metadata.jwks();
-
+    let expiry = unverified_claims.expiration();
     let verifier = if let Some(secret) = client_secret {
         log::info!("Has client secret use => CoreIdTokenVerifier::new_confidential_client");
         CoreIdTokenVerifier::new_confidential_client(
@@ -69,9 +70,61 @@ pub async fn verify_id_token(
             url.clone(),
             json_web_key_set.clone(),
         )
+        .enable_signature_check()
+        .require_audience_match(true)
+        .require_issuer_match(true)
+        .set_time_fn(Utc::now)
+        .set_issue_time_verifier_fn(|time| {
+            log::info!("ID Token Issue Time: {time:?}");
+            log::info!("ID Token Expiry Time: {expiry:?}");
+
+            let allowed_expiry_range = expiry - time;
+            log::info!("Configured Lifetime (Expiry - Issue): {allowed_expiry_range:?}");
+
+            let actual_diff = Utc::now() - time;
+            log::info!("Elapsed Since Issue: {actual_diff:?}");
+
+            if actual_diff > allowed_expiry_range {
+                Err(String::from("ID Token is expired (issue time too old)."))
+            } else {
+                Ok(())
+            }
+        })
+        .set_auth_time_verifier_fn(|time| {
+            if let Some(time) = time {
+                log::info!("User authenticated at: {time:?}");
+            }
+            Ok(())
+        })
     } else {
         log::info!("No client secret use => CoreIdTokenVerifier::new_public_client");
         CoreIdTokenVerifier::new_public_client(client_id, url.clone(), json_web_key_set.clone())
+            .enable_signature_check()
+            .require_audience_match(true)
+            .require_issuer_match(true)
+            .set_time_fn(Utc::now)
+            .set_issue_time_verifier_fn(|time| {
+                log::info!("ID Token Issue Time: {time:?}");
+                log::info!("ID Token Expiry Time: {expiry:?}");
+
+                let allowed_expiry_range = expiry - time;
+                log::info!("Configured Lifetime (Expiry - Issue): {allowed_expiry_range:?}");
+
+                let actual_diff = Utc::now() - time;
+                log::info!("Elapsed Since Issue: {actual_diff:?}");
+
+                if actual_diff > allowed_expiry_range {
+                    Err(String::from("ID Token is expired (issue time too old)."))
+                } else {
+                    Ok(())
+                }
+            })
+            .set_auth_time_verifier_fn(|time| {
+                if let Some(time) = time {
+                    log::info!("User authenticated at: {time:?}");
+                }
+                Ok(())
+            })
     };
 
     let verified_claims = id_token.claims(&verifier, app_nonce)?.clone();
