@@ -3,7 +3,7 @@ use std::fmt::{Debug, Display};
 use std::{error::Error, str::FromStr};
 
 // 3rd party crates
-use curl_http_client::collector::ExtendedHandler;
+use curl_http_client::{collector::ExtendedHandler, dep::async_curl::Error as CurlError};
 use log::SetLoggerError;
 use oauth2::{
     ConfigurationError, ErrorResponseType, RequestTokenError, StandardErrorResponse, url,
@@ -165,16 +165,16 @@ where
                 OAuth2Error::new(ErrorCodes::HttpError, err)
             }
             curl_http_client::error::Error::Perform(err) => match err {
-                async_curl::error::Error::Curl(err) => {
+                CurlError::Curl(err) => {
                     OAuth2Error::new(ErrorCodes::CurlError, err.description().to_owned())
                 }
-                async_curl::error::Error::Multi(err) => {
+                CurlError::Multi(err) => {
                     OAuth2Error::new(ErrorCodes::MultiError, err.description().to_owned())
                 }
-                async_curl::error::Error::TokioRecv(err) => {
+                CurlError::TokioRecv(err) => {
                     OAuth2Error::new(ErrorCodes::TokioRecv, err.to_string())
                 }
-                async_curl::error::Error::TokioSend(err) => {
+                CurlError::TokioSend(err) => {
                     OAuth2Error::new(ErrorCodes::TokioSend, err.to_string())
                 }
             },

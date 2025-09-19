@@ -5,7 +5,6 @@ edition = "2024"
 author = "Lorenzo Leonardo <enzotechcomputersolutions@gmail.com>"
 
 [dependencies]
-async-curl = "0.4"
 async-trait = "0.1"
 chrono = "0.4"
 curl-http-client = "2.4"
