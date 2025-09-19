@@ -1,9 +1,21 @@
 # smtp-xoauth2-test-tool
-This is a test tool for SMTP XOAUTH2 email workflow
 
-How to use this tool
+This is a test tool for the SMTP XOAUTH2 email workflow.  
+It uses OpenID Connect to obtain the name and email of the  
+authenticated user via OAuth2 and then sends a test SMTP email  
+to a specified recipient.
 
-cargo run \<provider\> \<access token grant type\> \<client id\> \<client secret\> \<recipient email\> \<recipient name\> \<debug log level\>
+The motivation for this project is to verify whether any  
+breakages occur at the endpoints. Sometimes, providers make  
+changes that introduce issues without notice. It’s better to  
+detect these problems in advance rather than waiting for  
+clients to call and complain.
+
+<br>
+
+## How to use this tool
+
+#### $ cargo run \<provider\> \<access token grant type\> \<client id\> \<client secret\> \<recipient email\> \<recipient name\> \<debug log level\>
 
 Notes:
 
