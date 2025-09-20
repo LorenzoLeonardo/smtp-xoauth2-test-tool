@@ -6,14 +6,14 @@ use std::{
 
 // 3rd party crates
 use async_trait::async_trait;
-use directories::UserDirs;
+use extio::Extio;
 use oauth2::{
     Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet, ExtraTokenFields,
-    HttpRequest, HttpResponse, Scope, StandardDeviceAuthorizationResponse, StandardRevocableToken,
-    StandardTokenResponse, TokenUrl,
+    HttpRequest, HttpResponse, RequestTokenError, Scope, StandardDeviceAuthorizationResponse,
+    StandardErrorResponse, StandardRevocableToken, StandardTokenResponse, TokenUrl,
     basic::{
-        BasicErrorResponse, BasicRevocationErrorResponse, BasicTokenIntrospectionResponse,
-        BasicTokenType,
+        BasicErrorResponse, BasicErrorResponseType, BasicRevocationErrorResponse,
+        BasicTokenIntrospectionResponse, BasicTokenType,
     },
 };
 use openidconnect::core::CoreIdToken;
@@ -21,10 +21,7 @@ use serde::{Deserialize, Serialize};
 
 // My crates
 use crate::TokenKeeper;
-use crate::{
-    curl::Curl,
-    error::{ErrorCodes, OAuth2Error, OAuth2Result},
-};
+use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
 
 #[async_trait(?Send)]
 pub trait DeviceCodeFlowTrait {
@@ -46,16 +43,19 @@ pub trait DeviceCodeFlowTrait {
         device_auth_response: StandardDeviceAuthorizationResponse,
         async_http_callback: T,
     ) -> OAuth2Result<CustomTokenResponse>;
-    async fn get_access_token<
+    async fn get_access_token<F, RE, T, I>(
+        &self,
+        file_name: &Path,
+        async_http_callback: T,
+        interface: &I,
+    ) -> OAuth2Result<TokenKeeper>
+    where
         F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
         T: Fn(HttpRequest) -> F,
-    >(
-        &self,
-        file_directory: &Path,
-        file_name: &Path,
-        async_http_callback: T,
-    ) -> OAuth2Result<TokenKeeper>;
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>;
 }
 
 pub struct DeviceCodeFlow {
@@ -145,18 +145,23 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         Ok(token_result)
     }
 
-    async fn get_access_token<
+    async fn get_access_token<F, RE, T, I>(
+        &self,
+        file_name: &Path,
+        async_http_callback: T,
+        interface: &I,
+    ) -> OAuth2Result<TokenKeeper>
+    where
         F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
         T: Fn(HttpRequest) -> F,
-    >(
-        &self,
-        file_directory: &Path,
-        file_name: &Path,
-        async_http_callback: T,
-    ) -> OAuth2Result<TokenKeeper> {
-        let mut token_keeper = TokenKeeper::new(file_directory.to_path_buf());
-        token_keeper.read(file_name)?;
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>
+            + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
+    {
+        let mut token_keeper = TokenKeeper::new();
+        token_keeper.read(file_name, interface)?;
 
         if token_keeper.has_access_token_expired() {
             match token_keeper.refresh_token {
@@ -178,15 +183,14 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                     match response {
                         Ok(res) => {
                             token_keeper = TokenKeeper::from(res);
-                            token_keeper.set_directory(file_directory.to_path_buf());
-                            token_keeper.save(file_name)?;
+                            token_keeper.save(file_name, interface)?;
                             Ok(token_keeper)
                         }
                         Err(e) => {
                             let error = OAuth2Error::from(e);
                             if error.error_code == ErrorCodes::InvalidGrant {
-                                let file = TokenKeeper::new(file_directory.to_path_buf());
-                                if let Err(e) = file.delete(file_name) {
+                                let file = TokenKeeper::new();
+                                if let Err(e) = file.delete(file_name, interface) {
                                     log::error!("{e:?}");
                                 }
                             }
@@ -198,7 +202,7 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                     log::info!(
                         "Access token has expired but there is no refresh token, please login again."
                     );
-                    token_keeper.delete(file_name)?;
+                    token_keeper.delete(file_name, interface)?;
                     Err(OAuth2Error::new(
                         ErrorCodes::NoToken,
                         "There is no refresh token.".into(),
@@ -227,14 +231,19 @@ impl DeviceCodeFlow {
     }
 }
 
-pub async fn device_code_flow(
+pub async fn device_code_flow<I>(
     client_id: &str,
     client_secret: Option<ClientSecret>,
     device_auth_endpoint: DeviceAuthorizationUrl,
     token_endpoint: TokenUrl,
     scopes: Vec<Scope>,
-    curl: Curl,
-) -> OAuth2Result<TokenKeeper> {
+    interface: I,
+) -> OAuth2Result<TokenKeeper>
+where
+    I: Extio + Clone + Send + Sync + 'static,
+    I::Error: std::error::Error + Send + Sync + 'static,
+    OAuth2Error: From<I::Error>,
+{
     let oauth2_cloud = DeviceCodeFlow::new(
         ClientId::new(client_id.to_string()),
         client_secret,
@@ -242,23 +251,18 @@ pub async fn device_code_flow(
         token_endpoint,
     );
 
-    let directory = UserDirs::new().ok_or(OAuth2Error::new(
-        ErrorCodes::DirectoryError,
-        "No valid directory".to_string(),
-    ))?;
-    let mut directory = directory.home_dir().to_owned();
-
-    directory = directory.join("token");
-
     let token_file = PathBuf::from(format!("{client_id}_device_code_flow.json"));
     log::debug!("Path: {token_file:?}");
-    log::debug!("Directory: {directory:?}");
-    let mut token_keeper = TokenKeeper::new(directory.to_path_buf());
+
+    let mut token_keeper = TokenKeeper::new();
 
     // If there is no exsting token, get it from the cloud
-    if let Err(_err) = token_keeper.read(&token_file) {
+    if let Err(_err) = token_keeper.read(&token_file, &interface) {
+        let interface_inner = interface.clone();
         let device_auth_response = oauth2_cloud
-            .request_device_code(scopes, |request| async { curl.send(request).await })
+            .request_device_code(scopes, |request| async {
+                interface_inner.http_request(request).await
+            })
             .await?;
 
         log::info!(
@@ -269,21 +273,22 @@ pub async fn device_code_flow(
             "Device Code: {}",
             &device_auth_response.user_code().secret()
         );
-
+        let interface_inner = interface.clone();
         let token = oauth2_cloud
             .poll_access_token(device_auth_response, |request| async {
-                curl.send(request).await
+                interface_inner.http_request(request).await
             })
             .await?;
         token_keeper = TokenKeeper::from(token);
-        token_keeper.set_directory(directory.to_path_buf());
-
-        token_keeper.save(&token_file)?;
+        token_keeper.save(&token_file, &interface)?;
     } else {
+        let interface_inner = interface.clone();
         token_keeper = oauth2_cloud
-            .get_access_token(&directory, &token_file, |request| async {
-                curl.send(request).await
-            })
+            .get_access_token(
+                &token_file,
+                |request| async { interface_inner.http_request(request).await },
+                &interface,
+            )
             .await?;
     }
     Ok(token_keeper)

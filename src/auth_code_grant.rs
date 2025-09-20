@@ -6,16 +6,16 @@ use std::{future::Future, path::Path};
 
 // 3rd party crates
 use async_trait::async_trait;
-use directories::UserDirs;
-use oauth2::AuthorizationCode;
+use extio::Extio;
+use oauth2::basic::BasicErrorResponseType;
 use oauth2::{
     AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest, HttpResponse, RedirectUrl, Scope,
     TokenUrl, url::Url,
 };
+use oauth2::{AuthorizationCode, RequestTokenError, StandardErrorResponse};
 
 // My crates
 use crate::TokenKeeper;
-use crate::curl::Curl;
 use crate::device_code_flow::CustomClient;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
 
@@ -26,28 +26,34 @@ pub trait AuthCodeGrantTrait {
         scopes: Vec<Scope>,
     ) -> OAuth2Result<(Url, CsrfToken)>;
 
-    async fn exchange_auth_code<
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-    >(
+    async fn exchange_auth_code<F, RE, T, I>(
         &self,
-        file_directory: &Path,
         file_name: &Path,
         auth_code: AuthorizationCode,
         async_http_callback: T,
-    ) -> OAuth2Result<TokenKeeper>;
-
-    async fn get_access_token<
+        interface: &I,
+    ) -> OAuth2Result<TokenKeeper>
+    where
         F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
         T: Fn(HttpRequest) -> F,
-    >(
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>;
+
+    async fn get_access_token<F, RE, T, I>(
         &self,
-        file_directory: &Path,
         file_name: &Path,
         async_http_callback: T,
-    ) -> OAuth2Result<TokenKeeper>;
+        interface: &I,
+    ) -> OAuth2Result<TokenKeeper>
+    where
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>;
 }
 
 pub struct AuthCodeGrant {
@@ -87,17 +93,21 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         Ok((authorize_url, csrf_state))
     }
 
-    async fn exchange_auth_code<
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-    >(
+    async fn exchange_auth_code<F, RE, T, I>(
         &self,
-        file_directory: &Path,
         file_name: &Path,
         auth_code: AuthorizationCode,
         async_http_callback: T,
-    ) -> OAuth2Result<TokenKeeper> {
+        interface: &I,
+    ) -> OAuth2Result<TokenKeeper>
+    where
+        F: Future<Output = Result<HttpResponse, RE>>,
+        RE: std::error::Error + 'static,
+        T: Fn(HttpRequest) -> F,
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>,
+    {
         let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
@@ -114,25 +124,29 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
             .request_async(&async_http_callback)
             .await?;
 
-        let mut token_keeper = TokenKeeper::from(token_res);
-        token_keeper.set_directory(file_directory.to_path_buf());
-        token_keeper.save(file_name)?;
+        let token_keeper = TokenKeeper::from(token_res);
+        token_keeper.save(file_name, interface)?;
         log::info!("Access token successfuly retrieved from the endpoint.");
         Ok(token_keeper)
     }
 
-    async fn get_access_token<
+    async fn get_access_token<F, RE, T, I>(
+        &self,
+        file_name: &Path,
+        async_http_callback: T,
+        interface: &I,
+    ) -> OAuth2Result<TokenKeeper>
+    where
         F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
         T: Fn(HttpRequest) -> F,
-    >(
-        &self,
-        file_directory: &Path,
-        file_name: &Path,
-        async_http_callback: T,
-    ) -> OAuth2Result<TokenKeeper> {
-        let mut token_keeper = TokenKeeper::new(file_directory.to_path_buf());
-        token_keeper.read(file_name)?;
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>
+            + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
+    {
+        let mut token_keeper = TokenKeeper::new();
+        token_keeper.read(file_name, interface)?;
 
         if token_keeper.has_access_token_expired() {
             match token_keeper.refresh_token {
@@ -159,15 +173,14 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                     match response {
                         Ok(res) => {
                             token_keeper = TokenKeeper::from(res);
-                            token_keeper.set_directory(file_directory.to_path_buf());
-                            token_keeper.save(file_name)?;
+                            token_keeper.save(file_name, interface)?;
                             Ok(token_keeper)
                         }
                         Err(e) => {
                             let error = OAuth2Error::from(e);
                             if error.error_code == ErrorCodes::InvalidGrant {
-                                let file = TokenKeeper::new(file_directory.to_path_buf());
-                                if let Err(e) = file.delete(file_name) {
+                                let file = TokenKeeper::new();
+                                if let Err(e) = file.delete(file_name, interface) {
                                     log::error!("{e:?}");
                                 }
                             }
@@ -179,7 +192,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                     log::info!(
                         "Access token has expired but there is no refresh token, please login again."
                     );
-                    token_keeper.delete(file_name)?;
+                    token_keeper.delete(file_name, interface)?;
                     Err(OAuth2Error::new(
                         ErrorCodes::NoToken,
                         "There is no refresh token.".into(),
@@ -208,14 +221,19 @@ impl AuthCodeGrant {
     }
 }
 
-pub async fn auth_code_grant(
+pub async fn auth_code_grant<I>(
     client_id: &str,
     client_secret: Option<ClientSecret>,
     auth_url: AuthUrl,
     token_url: TokenUrl,
     scopes: Vec<Scope>,
-    curl: Curl,
-) -> OAuth2Result<TokenKeeper> {
+    interface: I,
+) -> OAuth2Result<TokenKeeper>
+where
+    I: Extio + Clone + Send + Sync + 'static,
+    I::Error: std::error::Error + Send + Sync + 'static,
+    OAuth2Error: From<I::Error>,
+{
     let auth_code_grant = AuthCodeGrant::new(
         ClientId::new(client_id.to_string()),
         client_secret,
@@ -223,19 +241,11 @@ pub async fn auth_code_grant(
         token_url,
     );
 
-    let directory = UserDirs::new().ok_or(OAuth2Error::new(
-        ErrorCodes::DirectoryError,
-        "No valid directory".to_string(),
-    ))?;
-    let mut directory = directory.home_dir().to_owned();
-
-    directory = directory.join("token");
-
     let token_file = PathBuf::from(format!("{client_id}_auth_code_grant.json"));
-    let mut token_keeper = TokenKeeper::new(directory.to_path_buf());
+    let mut token_keeper = TokenKeeper::new();
 
     // If there is no exsting token, get it from the cloud
-    if let Err(_err) = token_keeper.read(&token_file) {
+    if let Err(_err) = token_keeper.read(&token_file, &interface) {
         let (authorize_url, _csrf_state) =
             auth_code_grant.generate_authorization_url(scopes).await?;
         log::info!("Open this URL in your browser: {authorize_url}");
@@ -298,19 +308,26 @@ pub async fn auth_code_grant(
             stream.write_all(response.as_bytes())?;
 
             // Exchange the code with a token.
+            let interface_inner = interface.clone();
             token_keeper = auth_code_grant
-                .exchange_auth_code(&directory, &token_file, code, |request| async {
-                    curl.send(request).await
-                })
+                .exchange_auth_code(
+                    &token_file,
+                    code,
+                    |request| async { interface_inner.http_request(request).await },
+                    &interface,
+                )
                 .await?;
 
             // The server will terminate itself after collecting the first code.
         }
     } else {
+        let interface_inner = interface.clone();
         token_keeper = auth_code_grant
-            .get_access_token(&directory, &token_file, |request| async {
-                curl.send(request).await
-            })
+            .get_access_token(
+                &token_file,
+                |request| async { interface_inner.http_request(request).await },
+                &interface,
+            )
             .await?;
     }
     Ok(token_keeper)
