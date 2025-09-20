@@ -28,7 +28,6 @@ use error::{ErrorCodes, OAuth2Error};
 use provider::Provider;
 use token_keeper::TokenKeeper;
 
-use crate::http_client::curl::Curl;
 use crate::interface::ActualInterface;
 use crate::openid::{ApplicationNonce, verify_id_token};
 
@@ -121,7 +120,6 @@ async fn main() -> OAuth2Result<()> {
     log::info!("SMTP Test Tool v{version} has started...");
 
     let interface = ActualInterface::new();
-    let curl = Curl::new();
     let token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
@@ -148,12 +146,12 @@ async fn main() -> OAuth2Result<()> {
             }
         };
 
-    let claims = verify_id_token(
+    let claims = verify_id_token::<ActualInterface, OAuth2Error>(
         ClientId::new(client_id.to_string()),
         client_secret,
         token.id_token.unwrap(),
         ApplicationNonce::new(),
-        curl.clone(),
+        interface,
     )
     .await?;
     let name = if let Some(name) = claims.name() {
