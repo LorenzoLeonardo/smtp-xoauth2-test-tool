@@ -1,5 +1,8 @@
 use chrono::{DateTime, Utc};
-use oauth2::{ClientId, ClientSecret};
+use extio::Extio;
+use oauth2::{
+    ClientId, ClientSecret, RequestTokenError, StandardErrorResponse, basic::BasicErrorResponseType,
+};
 use openidconnect::{
     NonceVerifier,
     core::{CoreIdToken, CoreIdTokenClaims, CoreIdTokenVerifier, CoreProviderMetadata},
@@ -7,7 +10,10 @@ use openidconnect::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{error::OAuth2Result, http_client::curl::Curl};
+use crate::{
+    error::{OAuth2Error, OAuth2Result},
+    http_client::OAuth2Client,
+};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ApplicationNonce(String);
@@ -67,22 +73,28 @@ fn log_authenticated_time(time: Option<DateTime<Utc>>) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn verify_id_token(
+pub async fn verify_id_token<I, RE>(
     client_id: ClientId,
     client_secret: Option<ClientSecret>,
     id_token: CoreIdToken,
     app_nonce: ApplicationNonce,
-    curl: Curl,
-) -> OAuth2Result<CoreIdTokenClaims> {
+    interface: I,
+) -> OAuth2Result<CoreIdTokenClaims>
+where
+    RE: std::error::Error + 'static,
+    I: Extio + Clone + Send + Sync + 'static,
+    I::Error: std::error::Error,
+    OAuth2Error:
+        From<I::Error> + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
+{
     log::info!("Verifying logged-in user . . .");
     let verifier = CoreIdTokenVerifier::new_insecure_without_verification();
     let unverified_claims = id_token.claims(&verifier, ApplicationNonce::new())?;
 
     let url = unverified_claims.issuer();
-    let provider_metadata = CoreProviderMetadata::discover_async(url.clone(), &|request| async {
-        curl.send(request).await
-    })
-    .await?;
+    let aync_http_client = OAuth2Client::new(interface.clone());
+    let provider_metadata =
+        CoreProviderMetadata::discover_async(url.clone(), &aync_http_client).await?;
 
     let json_web_key_set = provider_metadata.jwks();
     let expiry = unverified_claims.expiration();
