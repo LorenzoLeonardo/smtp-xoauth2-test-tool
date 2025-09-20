@@ -1,10 +1,9 @@
 // Standard libraries
-use std::fs::{self, File};
-use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use extio::Extio;
 // 3rd party crates
 use oauth2::basic::BasicTokenType;
 use oauth2::{
@@ -15,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::device_code_flow::CustomTokenResponse;
 // My crates
-use crate::error::OAuth2Result;
+use crate::error::{OAuth2Error, OAuth2Result};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenKeeper {
@@ -25,9 +24,12 @@ pub struct TokenKeeper {
     scopes: Option<Vec<String>>,
     expires_in: Option<Duration>,
     token_receive_time: Duration,
-    #[serde(skip_serializing)]
-    #[serde(skip_deserializing)]
-    file_directory: PathBuf,
+}
+
+impl Default for TokenKeeper {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl From<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> for TokenKeeper {
@@ -51,7 +53,6 @@ impl From<StandardTokenResponse<EmptyExtraTokenFields, BasicTokenType>> for Toke
             token_receive_time: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("Time went backwards"),
-            file_directory: PathBuf::new(),
         }
     }
 }
@@ -75,13 +76,12 @@ impl From<CustomTokenResponse> for TokenKeeper {
             token_receive_time: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .expect("Time went backwards"),
-            file_directory: PathBuf::new(),
         }
     }
 }
 
 impl TokenKeeper {
-    pub fn new(file_directory: PathBuf) -> Self {
+    pub fn new() -> Self {
         Self {
             access_token: AccessToken::new(String::new()),
             refresh_token: None,
@@ -89,13 +89,9 @@ impl TokenKeeper {
             scopes: None,
             expires_in: None,
             token_receive_time: Duration::new(0, 0),
-            file_directory,
         }
     }
 
-    pub fn set_directory(&mut self, file_directory: PathBuf) {
-        self.file_directory = file_directory;
-    }
     pub fn has_access_token_expired(&self) -> bool {
         let time_now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -108,31 +104,36 @@ impl TokenKeeper {
         }
     }
 
-    pub fn read(&mut self, file_name: &Path) -> OAuth2Result<()> {
-        let temp_dir = self.file_directory.clone();
-        let input_path = self.file_directory.join(file_name);
-        let text = std::fs::read_to_string(input_path)?;
+    pub fn read<I>(&mut self, file_name: &Path, interface: &I) -> OAuth2Result<()>
+    where
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>,
+    {
+        let result = interface.read_file(file_name)?;
 
-        *self = serde_json::from_str::<TokenKeeper>(&text)?;
-        self.set_directory(temp_dir);
+        *self = serde_json::from_slice::<Self>(&result)?;
         Ok(())
     }
 
-    pub fn save(&self, file_name: &Path) -> OAuth2Result<()> {
-        let input_path = self.file_directory.join(file_name);
-        let json = serde_json::to_string(self)?;
-
-        fs::create_dir_all(self.file_directory.as_path())?;
-
-        let mut file = File::create(input_path)?;
-
-        file.write_all(json.as_bytes())?;
-
+    pub fn save<I>(&self, file_name: &Path, interface: &I) -> OAuth2Result<()>
+    where
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>,
+    {
+        let json = serde_json::to_vec(self)?;
+        interface.write_file(file_name, &json)?;
         Ok(())
     }
 
-    pub fn delete(&self, file_name: &Path) -> OAuth2Result<()> {
-        let input_path = self.file_directory.join(file_name);
-        Ok(fs::remove_file(input_path)?)
+    pub fn delete<I>(&self, file_name: &Path, interface: &I) -> OAuth2Result<()>
+    where
+        I: Extio,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>,
+    {
+        interface.delete_file(file_name)?;
+        Ok(())
     }
 }
