@@ -10,7 +10,7 @@ use oauth2::basic::BasicErrorResponseType;
 use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl, url::Url};
 use oauth2::{AuthorizationCode, RequestTokenError, StandardErrorResponse};
 
-use crate::curl::OAuth2Client;
+use crate::http_client::OAuth2Client;
 // My crates
 use crate::TokenKeeper;
 use crate::device_code_flow::CustomClient;

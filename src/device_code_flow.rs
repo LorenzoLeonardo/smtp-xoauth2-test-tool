@@ -17,7 +17,7 @@ use serde::{Deserialize, Serialize};
 
 // My crates
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
-use crate::{TokenKeeper, curl::OAuth2Client};
+use crate::{TokenKeeper, http_client::OAuth2Client};
 
 pub struct DeviceCodeFlow {
     client_id: ClientId,

@@ -8,7 +8,7 @@ use directories::UserDirs;
 use extio::Extio;
 use oauth2::http::{Request, Response};
 
-use crate::{curl::Curl, error::OAuth2Error};
+use crate::{error::OAuth2Error, http_client::curl::Curl};
 
 #[derive(Clone)]
 pub struct ActualInterface {
