@@ -6,7 +6,7 @@ use std::{
 
 use directories::UserDirs;
 use extio::Extio;
-use http::{Request, Response};
+use oauth2::http::{Request, Response};
 
 use crate::{curl::Curl, error::OAuth2Error};
 

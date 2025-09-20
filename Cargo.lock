@@ -2801,7 +2801,6 @@ dependencies = [
  "directories",
  "env_logger",
  "extio",
- "http",
  "log",
  "mail-send",
  "oauth2",

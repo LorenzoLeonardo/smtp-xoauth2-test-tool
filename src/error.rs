@@ -6,7 +6,7 @@ use std::{error::Error, str::FromStr};
 use curl_http_client::{collector::ExtendedHandler, dep::async_curl::Error as CurlError};
 use log::SetLoggerError;
 use oauth2::{
-    ConfigurationError, ErrorResponseType, RequestTokenError, StandardErrorResponse, url,
+    ConfigurationError, ErrorResponseType, RequestTokenError, StandardErrorResponse, http, url,
 };
 use openidconnect::{ClaimsVerificationError, DiscoveryError};
 use serde::{Deserialize, Serialize};
