@@ -3,6 +3,7 @@ mod curl;
 pub mod device_code_flow;
 mod emailer;
 mod error;
+mod interface;
 mod openid;
 mod provider;
 mod token_keeper;
@@ -28,6 +29,7 @@ use error::{ErrorCodes, OAuth2Error};
 use provider::Provider;
 use token_keeper::TokenKeeper;
 
+use crate::interface::ActualInterface;
 use crate::openid::{ApplicationNonce, verify_id_token};
 
 enum ParamIndex {
@@ -118,6 +120,7 @@ async fn main() -> OAuth2Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     log::info!("SMTP Test Tool v{version} has started...");
 
+    let interface = ActualInterface::new();
     let curl = Curl::new();
     let token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
@@ -128,7 +131,7 @@ async fn main() -> OAuth2Result<()> {
                     provider.authorization_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
-                    curl.clone(),
+                    interface.clone(),
                 )
                 .await?
             }
@@ -139,7 +142,7 @@ async fn main() -> OAuth2Result<()> {
                     provider.device_auth_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
-                    curl.clone(),
+                    interface.clone(),
                 )
                 .await?
             }
