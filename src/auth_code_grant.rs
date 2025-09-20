@@ -1,60 +1,20 @@
 // Standard libraries
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
+use std::path::Path;
 use std::path::PathBuf;
-use std::{future::Future, path::Path};
 
 // 3rd party crates
-use async_trait::async_trait;
 use extio::Extio;
 use oauth2::basic::BasicErrorResponseType;
-use oauth2::{
-    AuthUrl, ClientId, ClientSecret, CsrfToken, HttpRequest, HttpResponse, RedirectUrl, Scope,
-    TokenUrl, url::Url,
-};
+use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl, url::Url};
 use oauth2::{AuthorizationCode, RequestTokenError, StandardErrorResponse};
 
+use crate::curl::OAuth2Client;
 // My crates
 use crate::TokenKeeper;
 use crate::device_code_flow::CustomClient;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
-
-#[async_trait(?Send)]
-pub trait AuthCodeGrantTrait {
-    async fn generate_authorization_url(
-        &self,
-        scopes: Vec<Scope>,
-    ) -> OAuth2Result<(Url, CsrfToken)>;
-
-    async fn exchange_auth_code<F, RE, T, I>(
-        &self,
-        file_name: &Path,
-        auth_code: AuthorizationCode,
-        async_http_callback: T,
-        interface: &I,
-    ) -> OAuth2Result<TokenKeeper>
-    where
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-        I: Extio,
-        I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>;
-
-    async fn get_access_token<F, RE, T, I>(
-        &self,
-        file_name: &Path,
-        async_http_callback: T,
-        interface: &I,
-    ) -> OAuth2Result<TokenKeeper>
-    where
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-        I: Extio,
-        I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>;
-}
 
 pub struct AuthCodeGrant {
     client_id: ClientId,
@@ -63,8 +23,20 @@ pub struct AuthCodeGrant {
     token_endpoint: TokenUrl,
 }
 
-#[async_trait(?Send)]
-impl AuthCodeGrantTrait for AuthCodeGrant {
+impl AuthCodeGrant {
+    pub fn new(
+        client_id: ClientId,
+        client_secret: Option<ClientSecret>,
+        auth_endpoint: AuthUrl,
+        token_endpoint: TokenUrl,
+    ) -> Self {
+        Self {
+            client_id,
+            client_secret,
+            auth_endpoint,
+            token_endpoint,
+        }
+    }
     async fn generate_authorization_url(
         &self,
         scopes: Vec<Scope>,
@@ -93,25 +65,24 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         Ok((authorize_url, csrf_state))
     }
 
-    async fn exchange_auth_code<F, RE, T, I>(
+    async fn exchange_auth_code<I, RE>(
         &self,
         file_name: &Path,
         auth_code: AuthorizationCode,
-        async_http_callback: T,
         interface: &I,
     ) -> OAuth2Result<TokenKeeper>
     where
-        F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-        I: Extio,
+        I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>,
+        OAuth2Error: From<I::Error>
+            + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
     {
         let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
+        let async_http_callback = OAuth2Client::new(interface.clone());
         let token_res = client
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_redirect_uri(
@@ -130,17 +101,14 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
         Ok(token_keeper)
     }
 
-    async fn get_access_token<F, RE, T, I>(
+    async fn get_access_token<I, RE>(
         &self,
         file_name: &Path,
-        async_http_callback: T,
         interface: &I,
     ) -> OAuth2Result<TokenKeeper>
     where
-        F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-        I: Extio,
+        I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
         OAuth2Error: From<I::Error>
             + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
@@ -158,6 +126,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
                     if let Some(client_secret) = self.client_secret.to_owned() {
                         client = client.set_client_secret(client_secret);
                     }
+                    let async_http_callback = OAuth2Client::new(interface.clone());
                     let response = client
                         .set_auth_type(oauth2::AuthType::RequestBody)
                         .set_redirect_uri(
@@ -205,23 +174,7 @@ impl AuthCodeGrantTrait for AuthCodeGrant {
     }
 }
 
-impl AuthCodeGrant {
-    pub fn new(
-        client_id: ClientId,
-        client_secret: Option<ClientSecret>,
-        auth_endpoint: AuthUrl,
-        token_endpoint: TokenUrl,
-    ) -> Self {
-        Self {
-            client_id,
-            client_secret,
-            auth_endpoint,
-            token_endpoint,
-        }
-    }
-}
-
-pub async fn auth_code_grant<I>(
+pub async fn auth_code_grant<I, RE>(
     client_id: &str,
     client_secret: Option<ClientSecret>,
     auth_url: AuthUrl,
@@ -230,9 +183,11 @@ pub async fn auth_code_grant<I>(
     interface: I,
 ) -> OAuth2Result<TokenKeeper>
 where
+    RE: std::error::Error + 'static,
     I: Extio + Clone + Send + Sync + 'static,
-    I::Error: std::error::Error + Send + Sync + 'static,
-    OAuth2Error: From<I::Error>,
+    I::Error: std::error::Error,
+    OAuth2Error:
+        From<I::Error> + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
 {
     let auth_code_grant = AuthCodeGrant::new(
         ClientId::new(client_id.to_string()),
@@ -308,26 +263,15 @@ where
             stream.write_all(response.as_bytes())?;
 
             // Exchange the code with a token.
-            let interface_inner = interface.clone();
             token_keeper = auth_code_grant
-                .exchange_auth_code(
-                    &token_file,
-                    code,
-                    |request| async { interface_inner.http_request(request).await },
-                    &interface,
-                )
+                .exchange_auth_code(&token_file, code, &interface)
                 .await?;
 
             // The server will terminate itself after collecting the first code.
         }
     } else {
-        let interface_inner = interface.clone();
         token_keeper = auth_code_grant
-            .get_access_token(
-                &token_file,
-                |request| async { interface_inner.http_request(request).await },
-                &interface,
-            )
+            .get_access_token(&token_file, &interface)
             .await?;
     }
     Ok(token_keeper)
