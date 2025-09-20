@@ -125,7 +125,7 @@ async fn main() -> OAuth2Result<()> {
     let token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
-                auth_code_grant(
+                auth_code_grant::<ActualInterface, OAuth2Error>(
                     client_id,
                     client_secret.clone(),
                     provider.authorization_endpoint,
@@ -136,7 +136,7 @@ async fn main() -> OAuth2Result<()> {
                 .await?
             }
             OAuth2TokenGrantFlow::DeviceCodeFlow => {
-                device_code_flow(
+                device_code_flow::<ActualInterface, OAuth2Error>(
                     client_id,
                     client_secret.clone(),
                     provider.device_auth_endpoint,

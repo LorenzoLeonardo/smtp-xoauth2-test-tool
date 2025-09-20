@@ -1,16 +1,12 @@
 // Standard libraries
-use std::{
-    future::Future,
-    path::{Path, PathBuf},
-};
+use std::path::{Path, PathBuf};
 
 // 3rd party crates
-use async_trait::async_trait;
 use extio::Extio;
 use oauth2::{
     Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet, ExtraTokenFields,
-    HttpRequest, HttpResponse, RequestTokenError, Scope, StandardDeviceAuthorizationResponse,
-    StandardErrorResponse, StandardRevocableToken, StandardTokenResponse, TokenUrl,
+    RequestTokenError, Scope, StandardDeviceAuthorizationResponse, StandardErrorResponse,
+    StandardRevocableToken, StandardTokenResponse, TokenUrl,
     basic::{
         BasicErrorResponse, BasicErrorResponseType, BasicRevocationErrorResponse,
         BasicTokenIntrospectionResponse, BasicTokenType,
@@ -20,43 +16,8 @@ use openidconnect::core::CoreIdToken;
 use serde::{Deserialize, Serialize};
 
 // My crates
-use crate::TokenKeeper;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
-
-#[async_trait(?Send)]
-pub trait DeviceCodeFlowTrait {
-    async fn request_device_code<
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-    >(
-        &self,
-        scopes: Vec<Scope>,
-        async_http_callback: T,
-    ) -> OAuth2Result<StandardDeviceAuthorizationResponse>;
-    async fn poll_access_token<
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-    >(
-        &self,
-        device_auth_response: StandardDeviceAuthorizationResponse,
-        async_http_callback: T,
-    ) -> OAuth2Result<CustomTokenResponse>;
-    async fn get_access_token<F, RE, T, I>(
-        &self,
-        file_name: &Path,
-        async_http_callback: T,
-        interface: &I,
-    ) -> OAuth2Result<TokenKeeper>
-    where
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-        I: Extio,
-        I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>;
-}
+use crate::{TokenKeeper, curl::OAuth2Client};
 
 pub struct DeviceCodeFlow {
     client_id: ClientId,
@@ -93,17 +54,32 @@ pub type CustomClient<
     HasTokenUrl,
 >;
 
-#[async_trait(?Send)]
-impl DeviceCodeFlowTrait for DeviceCodeFlow {
-    async fn request_device_code<
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-    >(
+impl DeviceCodeFlow {
+    pub fn new(
+        client_id: ClientId,
+        client_secret: Option<ClientSecret>,
+        device_auth_endpoint: DeviceAuthorizationUrl,
+        token_endpoint: TokenUrl,
+    ) -> Self {
+        Self {
+            client_id,
+            client_secret,
+            device_auth_endpoint,
+            token_endpoint,
+        }
+    }
+    pub async fn request_device_code<RE, I>(
         &self,
         scopes: Vec<Scope>,
-        async_http_callback: T,
-    ) -> OAuth2Result<StandardDeviceAuthorizationResponse> {
+        interface: &I,
+    ) -> OAuth2Result<StandardDeviceAuthorizationResponse>
+    where
+        RE: std::error::Error + 'static,
+        I: Extio + Send + Sync + Clone + 'static,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>
+            + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
+    {
         log::info!(
             "There is no Access token, please login via browser with this link and input the code."
         );
@@ -111,6 +87,7 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
+        let async_http_callback = OAuth2Client::new(interface.clone());
         let device_auth_response = client
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_token_uri(self.token_endpoint.to_owned())
@@ -122,19 +99,23 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
 
         Ok(device_auth_response)
     }
-    async fn poll_access_token<
-        F: Future<Output = Result<HttpResponse, RE>>,
-        RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-    >(
+    pub async fn poll_access_token<RE, I>(
         &self,
         device_auth_response: StandardDeviceAuthorizationResponse,
-        async_http_callback: T,
-    ) -> OAuth2Result<CustomTokenResponse> {
+        interface: &I,
+    ) -> OAuth2Result<CustomTokenResponse>
+    where
+        RE: std::error::Error + 'static,
+        I: Extio + Send + Sync + Clone + 'static,
+        I::Error: std::error::Error,
+        OAuth2Error: From<I::Error>
+            + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
+    {
         let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
             client = client.set_client_secret(client_secret);
         }
+        let async_http_callback = OAuth2Client::new(interface.clone());
         let token_result = client
             .set_auth_type(oauth2::AuthType::RequestBody)
             .set_token_uri(self.token_endpoint.to_owned())
@@ -145,17 +126,14 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
         Ok(token_result)
     }
 
-    async fn get_access_token<F, RE, T, I>(
+    pub async fn get_access_token<I, RE>(
         &self,
         file_name: &Path,
-        async_http_callback: T,
         interface: &I,
     ) -> OAuth2Result<TokenKeeper>
     where
-        F: Future<Output = Result<HttpResponse, RE>>,
         RE: std::error::Error + 'static,
-        T: Fn(HttpRequest) -> F,
-        I: Extio,
+        I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
         OAuth2Error: From<I::Error>
             + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
@@ -173,6 +151,7 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
                     if let Some(client_secret) = self.client_secret.to_owned() {
                         client = client.set_client_secret(client_secret);
                     }
+                    let async_http_callback = OAuth2Client::new(interface.clone());
                     let response = client
                         .set_auth_type(oauth2::AuthType::RequestBody)
                         .set_token_uri(self.token_endpoint.to_owned())
@@ -215,23 +194,7 @@ impl DeviceCodeFlowTrait for DeviceCodeFlow {
     }
 }
 
-impl DeviceCodeFlow {
-    pub fn new(
-        client_id: ClientId,
-        client_secret: Option<ClientSecret>,
-        device_auth_endpoint: DeviceAuthorizationUrl,
-        token_endpoint: TokenUrl,
-    ) -> Self {
-        Self {
-            client_id,
-            client_secret,
-            device_auth_endpoint,
-            token_endpoint,
-        }
-    }
-}
-
-pub async fn device_code_flow<I>(
+pub async fn device_code_flow<I, RE>(
     client_id: &str,
     client_secret: Option<ClientSecret>,
     device_auth_endpoint: DeviceAuthorizationUrl,
@@ -240,9 +203,11 @@ pub async fn device_code_flow<I>(
     interface: I,
 ) -> OAuth2Result<TokenKeeper>
 where
+    RE: std::error::Error + 'static,
     I: Extio + Clone + Send + Sync + 'static,
-    I::Error: std::error::Error + Send + Sync + 'static,
-    OAuth2Error: From<I::Error>,
+    I::Error: std::error::Error,
+    OAuth2Error:
+        From<I::Error> + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
 {
     let oauth2_cloud = DeviceCodeFlow::new(
         ClientId::new(client_id.to_string()),
@@ -258,12 +223,7 @@ where
 
     // If there is no exsting token, get it from the cloud
     if let Err(_err) = token_keeper.read(&token_file, &interface) {
-        let interface_inner = interface.clone();
-        let device_auth_response = oauth2_cloud
-            .request_device_code(scopes, |request| async {
-                interface_inner.http_request(request).await
-            })
-            .await?;
+        let device_auth_response = oauth2_cloud.request_device_code(scopes, &interface).await?;
 
         log::info!(
             "Login Here: {}",
@@ -273,22 +233,15 @@ where
             "Device Code: {}",
             &device_auth_response.user_code().secret()
         );
-        let interface_inner = interface.clone();
+
         let token = oauth2_cloud
-            .poll_access_token(device_auth_response, |request| async {
-                interface_inner.http_request(request).await
-            })
+            .poll_access_token(device_auth_response, &interface)
             .await?;
         token_keeper = TokenKeeper::from(token);
         token_keeper.save(&token_file, &interface)?;
     } else {
-        let interface_inner = interface.clone();
         token_keeper = oauth2_cloud
-            .get_access_token(
-                &token_file,
-                |request| async { interface_inner.http_request(request).await },
-                &interface,
-            )
+            .get_access_token(&token_file, &interface)
             .await?;
     }
     Ok(token_keeper)
