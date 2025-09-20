@@ -7,7 +7,7 @@ use openidconnect::{
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::{curl::Curl, error::OAuth2Result};
+use crate::{error::OAuth2Result, http_client::curl::Curl};
 
 #[derive(Serialize, Deserialize, Debug, Default)]
 pub struct ApplicationNonce(String);

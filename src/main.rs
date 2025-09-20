@@ -1,8 +1,8 @@
-pub mod auth_code_grant;
-mod curl;
-pub mod device_code_flow;
+mod auth_code_grant;
+mod device_code_flow;
 mod emailer;
 mod error;
+mod http_client;
 mod interface;
 mod openid;
 mod provider;
@@ -15,7 +15,6 @@ use std::str::FromStr;
 
 // 3rd party crates
 use chrono::Local;
-use curl::Curl;
 use log::LevelFilter;
 use oauth2::{ClientId, ClientSecret};
 use strum_macros::EnumString;
@@ -29,6 +28,7 @@ use error::{ErrorCodes, OAuth2Error};
 use provider::Provider;
 use token_keeper::TokenKeeper;
 
+use crate::http_client::curl::Curl;
 use crate::interface::ActualInterface;
 use crate::openid::{ApplicationNonce, verify_id_token};
 
