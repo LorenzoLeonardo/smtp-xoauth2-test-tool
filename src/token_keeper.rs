@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::device_code_flow::CustomTokenResponse;
 // My crates
-use crate::error::{OAuth2Error, OAuth2Result};
+use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TokenKeeper {
@@ -110,7 +110,12 @@ impl TokenKeeper {
         I::Error: std::error::Error,
         OAuth2Error: From<I::Error>,
     {
-        let result = interface.read_file(file_name)?;
+        let result = interface.read_file(file_name).map_err(|err| {
+            OAuth2Error::new(
+                ErrorCodes::IoError,
+                format!["{err} => {}", file_name.display()],
+            )
+        })?;
 
         *self = serde_json::from_slice::<Self>(&result)?;
         Ok(())
@@ -123,7 +128,12 @@ impl TokenKeeper {
         OAuth2Error: From<I::Error>,
     {
         let json = serde_json::to_vec(self)?;
-        interface.write_file(file_name, &json)?;
+        interface.write_file(file_name, &json).map_err(|err| {
+            OAuth2Error::new(
+                ErrorCodes::IoError,
+                format!["{err} => {}", file_name.display()],
+            )
+        })?;
         Ok(())
     }
 
@@ -133,7 +143,12 @@ impl TokenKeeper {
         I::Error: std::error::Error,
         OAuth2Error: From<I::Error>,
     {
-        interface.delete_file(file_name)?;
+        interface.delete_file(file_name).map_err(|err| {
+            OAuth2Error::new(
+                ErrorCodes::IoError,
+                format!["{err} => {}", file_name.display()],
+            )
+        })?;
         Ok(())
     }
 }

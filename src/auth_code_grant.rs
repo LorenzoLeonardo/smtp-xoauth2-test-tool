@@ -11,6 +11,7 @@ use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, Tok
 use oauth2::{AuthorizationCode, RequestTokenError, StandardErrorResponse};
 
 use crate::http_client::OAuth2Client;
+use crate::interface::ExtioExtended;
 // My crates
 use crate::TokenKeeper;
 use crate::device_code_flow::CustomClient;
@@ -184,7 +185,7 @@ pub async fn auth_code_grant<I, RE>(
 ) -> OAuth2Result<TokenKeeper>
 where
     RE: std::error::Error + 'static,
-    I: Extio + Clone + Send + Sync + 'static,
+    I: ExtioExtended + Clone + Send + Sync + 'static,
     I::Error: std::error::Error,
     OAuth2Error:
         From<I::Error> + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
@@ -197,6 +198,8 @@ where
     );
 
     let token_file = PathBuf::from(format!("{client_id}_auth_code_grant.json"));
+    let token_file = interface.token_path().join(&token_file);
+    log::debug!("Path: {token_file:?}");
     let mut token_keeper = TokenKeeper::new();
 
     // If there is no exsting token, get it from the cloud

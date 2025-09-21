@@ -16,8 +16,11 @@ use openidconnect::core::CoreIdToken;
 use serde::{Deserialize, Serialize};
 
 // My crates
-use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
 use crate::{TokenKeeper, http_client::OAuth2Client};
+use crate::{
+    error::{ErrorCodes, OAuth2Error, OAuth2Result},
+    interface::ExtioExtended,
+};
 
 pub struct DeviceCodeFlow {
     client_id: ClientId,
@@ -204,7 +207,7 @@ pub async fn device_code_flow<I, RE>(
 ) -> OAuth2Result<TokenKeeper>
 where
     RE: std::error::Error + 'static,
-    I: Extio + Clone + Send + Sync + 'static,
+    I: ExtioExtended + Clone + Send + Sync + 'static,
     I::Error: std::error::Error,
     OAuth2Error:
         From<I::Error> + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
@@ -217,6 +220,7 @@ where
     );
 
     let token_file = PathBuf::from(format!("{client_id}_device_code_flow.json"));
+    let token_file = interface.token_path().join(&token_file);
     log::debug!("Path: {token_file:?}");
 
     let mut token_keeper = TokenKeeper::new();

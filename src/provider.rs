@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use crate::{
     ParamIndex,
     error::{ErrorCodes, OAuth2Error, OAuth2Result},
+    interface::ExtioExtended,
 };
 
 #[derive(Serialize, Deserialize, Debug, Eq, PartialEq, Hash, Default)]
@@ -29,33 +30,25 @@ pub struct Provider {
 }
 
 impl Provider {
-    pub fn read(directory: &Path, file_name: &PathBuf) -> OAuth2Result<Self> {
+    fn read(directory: &Path, file_name: &PathBuf) -> OAuth2Result<Self> {
         let input_path = directory.join(file_name);
-        let text = std::fs::read_to_string(input_path)?;
+        let text = std::fs::read_to_string(&input_path).map_err(|err| {
+            OAuth2Error::new(
+                ErrorCodes::IoError,
+                format!["{err} => {}", input_path.display()],
+            )
+        })?;
         Ok(serde_json::from_str::<Self>(&text)?)
     }
 
-    pub fn get_provider(args: &[String]) -> OAuth2Result<Provider> {
-        let provider_directory = std::env::current_exe()?
-            .parent()
-            .ok_or(OAuth2Error::new(
-                ErrorCodes::DirectoryError,
-                "No valid directory".to_string(),
-            ))?
-            .parent()
-            .ok_or(OAuth2Error::new(
-                ErrorCodes::DirectoryError,
-                "No valid directory".to_string(),
-            ))?
-            .parent()
-            .ok_or(OAuth2Error::new(
-                ErrorCodes::DirectoryError,
-                "No valid directory".to_string(),
-            ))?
-            .to_path_buf();
-        let provider_directory = provider_directory.join(PathBuf::from("endpoints"));
+    pub fn get_provider<I>(args: &[String], interface: &I) -> OAuth2Result<Provider>
+    where
+        I: ExtioExtended,
+    {
+        let provider_directory = interface.provider_path();
+
         let provider = Provider::read(
-            &provider_directory,
+            provider_directory,
             &PathBuf::from(args[ParamIndex::Provider as usize].to_string()),
         );
         match provider {
