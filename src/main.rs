@@ -28,6 +28,8 @@ use error::{ErrorCodes, OAuth2Error};
 use provider::Provider;
 use token_keeper::TokenKeeper;
 
+use crate::http_client::HttpClient;
+use crate::http_client::reqwest::Reqwest;
 use crate::interface::ActualInterface;
 use crate::openid::{ApplicationNonce, verify_id_token};
 
@@ -101,7 +103,7 @@ async fn main() -> OAuth2Result<()> {
     let args: Vec<String> = env::args().collect();
     check_args(&args)?;
 
-    let interface = ActualInterface::new();
+    let interface = ActualInterface::new(HttpClient::Reqwest(Reqwest::new()));
     let provider: Provider = Provider::get_provider(&args, &interface)?;
     let client_secret = match args[ParamIndex::ClientSecret as usize].as_str() {
         "None" => None,

@@ -2805,6 +2805,7 @@ dependencies = [
  "mail-send",
  "oauth2",
  "openidconnect",
+ "reqwest",
  "serde",
  "serde_json",
  "sha2",
