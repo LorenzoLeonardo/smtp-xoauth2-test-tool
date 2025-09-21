@@ -13,19 +13,19 @@ use crate::{error::OAuth2Error, http_client::curl::Curl};
 #[derive(Clone)]
 pub struct ActualInterface {
     curl: Curl,
-    file_directory: PathBuf,
+    token_path: PathBuf,
 }
 
 impl ActualInterface {
     pub fn new() -> Self {
-        let file_directory = UserDirs::new().unwrap();
-        let mut file_directory = file_directory.home_dir().to_owned();
-        file_directory = file_directory.join("token");
-        fs::create_dir_all(file_directory.as_path()).unwrap();
+        let token_path = UserDirs::new().unwrap();
+        let mut token_path = token_path.home_dir().to_owned();
+        token_path = token_path.join("token");
+        fs::create_dir_all(token_path.as_path()).unwrap();
 
         Self {
             curl: Curl::new(),
-            file_directory,
+            token_path,
         }
     }
 }
@@ -35,18 +35,18 @@ impl Extio for ActualInterface {
     type Error = OAuth2Error;
 
     fn read_file(&self, path: &Path) -> Result<Vec<u8>, Self::Error> {
-        let input_path = self.file_directory.join(path);
+        let input_path = self.token_path.join(path);
         let result = fs::read(input_path)?;
         Ok(result)
     }
     fn write_file(&self, path: &Path, data: &[u8]) -> Result<(), Self::Error> {
-        let input_path = self.file_directory.join(path);
+        let input_path = self.token_path.join(path);
         let mut file = File::create(input_path)?;
         file.write_all(data)?;
         Ok(())
     }
     fn delete_file(&self, path: &Path) -> Result<(), Self::Error> {
-        let input_path = self.file_directory.join(path);
+        let input_path = self.token_path.join(path);
         fs::remove_file(input_path)?;
         Ok(())
     }
