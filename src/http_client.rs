@@ -1,11 +1,15 @@
 pub mod curl;
+pub mod reqwest;
 
 use std::pin::Pin;
 
 use extio::Extio;
 use oauth2::{AsyncHttpClient, HttpRequest, HttpResponse};
 
-use crate::error::OAuth2Error;
+use crate::{
+    error::OAuth2Error,
+    http_client::{curl::Curl, reqwest::Reqwest},
+};
 
 pub struct OAuth2Client<I>
 where
@@ -38,5 +42,21 @@ where
             let result = interface.http_request(request).await?;
             Ok(result)
         })
+    }
+}
+
+#[allow(dead_code)]
+#[derive(Clone)]
+pub enum HttpClient {
+    Curl(Curl),
+    Reqwest(Reqwest),
+}
+
+impl std::fmt::Display for HttpClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            HttpClient::Curl(_) => write!(f, "Curl"),
+            HttpClient::Reqwest(_) => write!(f, "Reqwest"),
+        }
     }
 }

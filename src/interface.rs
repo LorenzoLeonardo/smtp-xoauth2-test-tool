@@ -8,17 +8,17 @@ use directories::UserDirs;
 use extio::Extio;
 use oauth2::http::{Request, Response};
 
-use crate::{error::OAuth2Error, http_client::curl::Curl};
+use crate::{error::OAuth2Error, http_client::HttpClient};
 
 #[derive(Clone)]
 pub struct ActualInterface {
-    curl: Curl,
+    http_client: HttpClient,
     token_path: PathBuf,
     provider_path: PathBuf,
 }
 
 impl ActualInterface {
-    pub fn new() -> Self {
+    pub fn new(http_client: HttpClient) -> Self {
         let token_path = UserDirs::new().unwrap();
         let mut token_path = token_path.home_dir().to_owned();
         token_path = token_path.join("token");
@@ -26,8 +26,10 @@ impl ActualInterface {
 
         let mut provider_path = std::env::current_exe().unwrap_or(PathBuf::from("."));
         provider_path = provider_path.join("endpoints");
+
+        log::info!("Http Client used: {http_client}");
         Self {
-            curl: Curl::new(),
+            http_client,
             token_path,
             provider_path,
         }
@@ -52,7 +54,10 @@ impl Extio for ActualInterface {
         Ok(())
     }
     async fn http_request(&self, req: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, Self::Error> {
-        self.curl.send(req).await
+        match &self.http_client {
+            HttpClient::Curl(curl) => curl.send(req).await,
+            HttpClient::Reqwest(reqwest) => reqwest.send(req).await,
+        }
     }
 }
 

@@ -65,6 +65,7 @@ pub enum ErrorCodes {
     UrlParseError,
     DiscoveryError,
     ClaimsVerificationError,
+    ReqwestError,
 }
 
 impl From<String> for ErrorCodes {
@@ -224,6 +225,18 @@ impl From<DiscoveryError<OAuth2Error>> for OAuth2Error {
 impl From<ClaimsVerificationError> for OAuth2Error {
     fn from(e: ClaimsVerificationError) -> Self {
         OAuth2Error::new(ErrorCodes::ClaimsVerificationError, e.to_string())
+    }
+}
+
+impl From<reqwest::Error> for OAuth2Error {
+    fn from(e: reqwest::Error) -> Self {
+        OAuth2Error::new(ErrorCodes::ReqwestError, e.to_string())
+    }
+}
+
+impl From<http::Error> for OAuth2Error {
+    fn from(e: http::Error) -> Self {
+        OAuth2Error::new(ErrorCodes::HttpError, e.to_string())
     }
 }
 
