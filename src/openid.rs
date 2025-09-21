@@ -1,8 +1,6 @@
 use chrono::{DateTime, Utc};
 use extio::Extio;
-use oauth2::{
-    ClientId, ClientSecret, RequestTokenError, StandardErrorResponse, basic::BasicErrorResponseType,
-};
+use oauth2::{ClientId, ClientSecret, RequestTokenError, basic::BasicErrorResponse};
 use openidconnect::{
     NonceVerifier,
     core::{CoreIdToken, CoreIdTokenClaims, CoreIdTokenVerifier, CoreProviderMetadata},
@@ -83,8 +81,7 @@ pub async fn verify_id_token<I>(
 where
     I: Extio + Clone + Send + Sync + 'static,
     I::Error: std::error::Error,
-    OAuth2Error: From<I::Error>
-        + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+    OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
 {
     log::info!("Verifying logged-in user . . .");
     let verifier = CoreIdTokenVerifier::new_insecure_without_verification();

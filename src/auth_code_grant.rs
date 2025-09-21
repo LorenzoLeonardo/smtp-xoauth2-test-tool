@@ -6,16 +6,17 @@ use std::path::PathBuf;
 
 // 3rd party crates
 use extio::Extio;
-use oauth2::basic::BasicErrorResponseType;
-use oauth2::{AuthUrl, ClientId, ClientSecret, CsrfToken, RedirectUrl, Scope, TokenUrl, url::Url};
-use oauth2::{AuthorizationCode, RequestTokenError, StandardErrorResponse};
+use oauth2::{
+    AuthUrl, AuthorizationCode, ClientId, ClientSecret, CsrfToken, RedirectUrl, RequestTokenError,
+    Scope, TokenUrl, basic::BasicErrorResponse, url::Url,
+};
 
-use crate::http_client::OAuth2Client;
-use crate::interface::ExtioExtended;
 // My crates
 use crate::TokenKeeper;
 use crate::device_code_flow::CustomClient;
 use crate::error::{ErrorCodes, OAuth2Error, OAuth2Result};
+use crate::http_client::OAuth2Client;
+use crate::interface::ExtioExtended;
 
 pub struct AuthCodeGrant {
     client_id: ClientId,
@@ -75,8 +76,7 @@ impl AuthCodeGrant {
     where
         I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>
-            + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+        OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
     {
         let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
@@ -109,8 +109,7 @@ impl AuthCodeGrant {
     where
         I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>
-            + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+        OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
     {
         let mut token_keeper = TokenKeeper::new();
         token_keeper.read(file_name, interface)?;
@@ -184,8 +183,7 @@ pub async fn auth_code_grant<I>(
 where
     I: ExtioExtended + Clone + Send + Sync + 'static,
     I::Error: std::error::Error,
-    OAuth2Error: From<I::Error>
-        + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+    OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
 {
     let auth_code_grant = AuthCodeGrant::new(
         ClientId::new(client_id.to_string()),

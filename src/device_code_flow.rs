@@ -5,11 +5,11 @@ use std::path::{Path, PathBuf};
 use extio::Extio;
 use oauth2::{
     Client, ClientId, ClientSecret, DeviceAuthorizationUrl, EndpointNotSet, ExtraTokenFields,
-    RequestTokenError, Scope, StandardDeviceAuthorizationResponse, StandardErrorResponse,
-    StandardRevocableToken, StandardTokenResponse, TokenUrl,
+    RequestTokenError, Scope, StandardDeviceAuthorizationResponse, StandardRevocableToken,
+    StandardTokenResponse, TokenUrl,
     basic::{
-        BasicErrorResponse, BasicErrorResponseType, BasicRevocationErrorResponse,
-        BasicTokenIntrospectionResponse, BasicTokenType,
+        BasicErrorResponse, BasicRevocationErrorResponse, BasicTokenIntrospectionResponse,
+        BasicTokenType,
     },
 };
 use openidconnect::core::CoreIdToken;
@@ -79,8 +79,7 @@ impl DeviceCodeFlow {
     where
         I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>
-            + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+        OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
     {
         log::info!(
             "There is no Access token, please login via browser with this link and input the code."
@@ -109,8 +108,7 @@ impl DeviceCodeFlow {
     where
         I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>
-            + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+        OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
     {
         let mut client = CustomClient::new(self.client_id.to_owned());
         if let Some(client_secret) = self.client_secret.to_owned() {
@@ -135,8 +133,7 @@ impl DeviceCodeFlow {
     where
         I: Extio + Send + Sync + Clone + 'static,
         I::Error: std::error::Error,
-        OAuth2Error: From<I::Error>
-            + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+        OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
     {
         let mut token_keeper = TokenKeeper::new();
         token_keeper.read(file_name, interface)?;
@@ -206,8 +203,7 @@ where
     //RE: std::error::Error + 'static,
     I: ExtioExtended + Clone + Send + Sync + 'static,
     I::Error: std::error::Error,
-    OAuth2Error: From<I::Error>
-        + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
+    OAuth2Error: From<I::Error> + From<RequestTokenError<OAuth2Error, BasicErrorResponse>>,
 {
     let oauth2_cloud = DeviceCodeFlow::new(
         ClientId::new(client_id.to_string()),
