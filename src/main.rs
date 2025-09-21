@@ -130,7 +130,7 @@ async fn main() -> OAuth2Result<()> {
                     provider.authorization_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
-                    interface.clone(),
+                    &interface,
                 )
                 .await?
             }
@@ -141,7 +141,7 @@ async fn main() -> OAuth2Result<()> {
                     provider.device_auth_endpoint,
                     provider.token_endpoint,
                     provider.scopes,
-                    interface.clone(),
+                    &interface,
                 )
                 .await?
             }
@@ -152,7 +152,7 @@ async fn main() -> OAuth2Result<()> {
         client_secret,
         token.id_token.unwrap(),
         ApplicationNonce::new(),
-        interface,
+        &interface,
     )
     .await?;
     let name = if let Some(name) = claims.name() {

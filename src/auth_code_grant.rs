@@ -181,7 +181,7 @@ pub async fn auth_code_grant<I, RE>(
     auth_url: AuthUrl,
     token_url: TokenUrl,
     scopes: Vec<Scope>,
-    interface: I,
+    interface: &I,
 ) -> OAuth2Result<TokenKeeper>
 where
     RE: std::error::Error + 'static,
@@ -203,7 +203,7 @@ where
     let mut token_keeper = TokenKeeper::new();
 
     // If there is no exsting token, get it from the cloud
-    if let Err(_err) = token_keeper.read(&token_file, &interface) {
+    if let Err(_err) = token_keeper.read(&token_file, interface) {
         let (authorize_url, _csrf_state) =
             auth_code_grant.generate_authorization_url(scopes).await?;
         log::info!("Open this URL in your browser: {authorize_url}");
@@ -267,14 +267,14 @@ where
 
             // Exchange the code with a token.
             token_keeper = auth_code_grant
-                .exchange_auth_code(&token_file, code, &interface)
+                .exchange_auth_code(&token_file, code, interface)
                 .await?;
 
             // The server will terminate itself after collecting the first code.
         }
     } else {
         token_keeper = auth_code_grant
-            .get_access_token(&token_file, &interface)
+            .get_access_token(&token_file, interface)
             .await?;
     }
     Ok(token_keeper)

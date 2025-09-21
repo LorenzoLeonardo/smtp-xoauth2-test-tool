@@ -78,7 +78,7 @@ pub async fn verify_id_token<I, RE>(
     client_secret: Option<ClientSecret>,
     id_token: CoreIdToken,
     app_nonce: ApplicationNonce,
-    interface: I,
+    interface: &I,
 ) -> OAuth2Result<CoreIdTokenClaims>
 where
     RE: std::error::Error + 'static,
