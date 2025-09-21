@@ -3,7 +3,7 @@ use reqwest::Client;
 
 use crate::error::OAuth2Error;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Reqwest {
     client: Client,
 }

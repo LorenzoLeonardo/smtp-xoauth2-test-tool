@@ -1,10 +1,14 @@
+#[allow(dead_code)]
 pub mod curl;
+
+#[allow(dead_code)]
 pub mod reqwest;
 
 use std::pin::Pin;
 
 use extio::Extio;
 use oauth2::{AsyncHttpClient, HttpRequest, HttpResponse};
+use strum_macros::{Display, EnumString};
 
 use crate::{
     error::OAuth2Error,
@@ -45,18 +49,8 @@ where
     }
 }
 
-#[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Display, EnumString)]
 pub enum HttpClient {
     Curl(Curl),
     Reqwest(Reqwest),
-}
-
-impl std::fmt::Display for HttpClient {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HttpClient::Curl(_) => write!(f, "Curl"),
-            HttpClient::Reqwest(_) => write!(f, "Reqwest"),
-        }
-    }
 }
