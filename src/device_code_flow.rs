@@ -203,7 +203,7 @@ pub async fn device_code_flow<I, RE>(
     device_auth_endpoint: DeviceAuthorizationUrl,
     token_endpoint: TokenUrl,
     scopes: Vec<Scope>,
-    interface: I,
+    interface: &I,
 ) -> OAuth2Result<TokenKeeper>
 where
     RE: std::error::Error + 'static,
@@ -226,8 +226,8 @@ where
     let mut token_keeper = TokenKeeper::new();
 
     // If there is no exsting token, get it from the cloud
-    if let Err(_err) = token_keeper.read(&token_file, &interface) {
-        let device_auth_response = oauth2_cloud.request_device_code(scopes, &interface).await?;
+    if let Err(_err) = token_keeper.read(&token_file, interface) {
+        let device_auth_response = oauth2_cloud.request_device_code(scopes, interface).await?;
 
         log::info!(
             "Login Here: {}",
@@ -239,13 +239,13 @@ where
         );
 
         let token = oauth2_cloud
-            .poll_access_token(device_auth_response, &interface)
+            .poll_access_token(device_auth_response, interface)
             .await?;
         token_keeper = TokenKeeper::from(token);
-        token_keeper.save(&token_file, &interface)?;
+        token_keeper.save(&token_file, interface)?;
     } else {
         token_keeper = oauth2_cloud
-            .get_access_token(&token_file, &interface)
+            .get_access_token(&token_file, interface)
             .await?;
     }
     Ok(token_keeper)
