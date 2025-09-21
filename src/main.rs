@@ -102,6 +102,11 @@ fn check_args(args: &[String]) -> OAuth2Result<()> {
 async fn main() -> OAuth2Result<()> {
     let args: Vec<String> = env::args().collect();
     check_args(&args)?;
+    if args.len() <= (ParamIndex::DebugLevel as usize) {
+        init_logger("info");
+    } else {
+        init_logger(args[ParamIndex::DebugLevel as usize].as_str());
+    }
 
     let interface = ActualInterface::new(HttpClient::Reqwest(Reqwest::new()));
     let provider: Provider = Provider::get_provider(&args, &interface)?;
@@ -114,11 +119,6 @@ async fn main() -> OAuth2Result<()> {
     let client_id = &args[ParamIndex::ClientId as usize];
     let recipient_email = &args[ParamIndex::RecipientEmail as usize];
     let recipient_name = &args[ParamIndex::RecipientName as usize];
-    if args.len() <= (ParamIndex::DebugLevel as usize) {
-        init_logger("info");
-    } else {
-        init_logger(args[ParamIndex::DebugLevel as usize].as_str());
-    }
 
     let version = env!("CARGO_PKG_VERSION");
     log::info!("SMTP Test Tool v{version} has started...");
