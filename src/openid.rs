@@ -73,7 +73,7 @@ fn log_authenticated_time(time: Option<DateTime<Utc>>) -> Result<(), String> {
     Ok(())
 }
 
-pub async fn verify_id_token<I, RE>(
+pub async fn verify_id_token<I>(
     client_id: ClientId,
     client_secret: Option<ClientSecret>,
     id_token: CoreIdToken,
@@ -81,11 +81,10 @@ pub async fn verify_id_token<I, RE>(
     interface: &I,
 ) -> OAuth2Result<CoreIdTokenClaims>
 where
-    RE: std::error::Error + 'static,
     I: Extio + Clone + Send + Sync + 'static,
     I::Error: std::error::Error,
-    OAuth2Error:
-        From<I::Error> + From<RequestTokenError<RE, StandardErrorResponse<BasicErrorResponseType>>>,
+    OAuth2Error: From<I::Error>
+        + From<RequestTokenError<OAuth2Error, StandardErrorResponse<BasicErrorResponseType>>>,
 {
     log::info!("Verifying logged-in user . . .");
     let verifier = CoreIdTokenVerifier::new_insecure_without_verification();
