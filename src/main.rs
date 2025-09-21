@@ -29,7 +29,6 @@ use provider::Provider;
 use token_keeper::TokenKeeper;
 
 use crate::http_client::HttpClient;
-use crate::http_client::reqwest::Reqwest;
 use crate::interface::ActualInterface;
 use crate::openid::{ApplicationNonce, verify_id_token};
 
@@ -41,6 +40,7 @@ enum ParamIndex {
     RecipientEmail,
     RecipientName,
     DebugLevel,
+    HttpClient,
 }
 
 #[derive(EnumString)]
@@ -87,7 +87,7 @@ fn check_args(args: &[String]) -> OAuth2Result<()> {
     if args.len() < ParamIndex::DebugLevel as usize {
         eprintln!("How to use this tool?\n");
         eprintln!(
-            "Execute: cargo run <provider> <access token grant type> <client id> <client secret> <recipient email> <recipient name> <debug log level>"
+            "Execute: cargo run <provider> <access token grant type> <client id> <client secret> <recipient email> <recipient name> <debug log level (error, warn, info, debug, trace)> <http client to use (Curl, Reqwest)>"
         );
         Err(OAuth2Error::new(
             ErrorCodes::InvalidParameters,
@@ -108,7 +108,13 @@ async fn main() -> OAuth2Result<()> {
         init_logger(args[ParamIndex::DebugLevel as usize].as_str());
     }
 
-    let interface = ActualInterface::new(HttpClient::Reqwest(Reqwest::new()));
+    let http_client = if args.len() <= (ParamIndex::HttpClient as usize) {
+        HttpClient::from_str("Reqwest")?
+    } else {
+        HttpClient::from_str(args[ParamIndex::HttpClient as usize].as_str())?
+    };
+
+    let interface = ActualInterface::new(http_client);
     let provider: Provider = Provider::get_provider(&args, &interface)?;
     let client_secret = match args[ParamIndex::ClientSecret as usize].as_str() {
         "None" => None,

@@ -3,18 +3,20 @@ use reqwest::Client;
 
 use crate::error::OAuth2Error;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Reqwest {
     client: Client,
 }
 
-impl Reqwest {
-    pub fn new() -> Self {
+impl Default for Reqwest {
+    fn default() -> Self {
         Self {
             client: Client::new(),
         }
     }
+}
 
+impl Reqwest {
     pub async fn send(&self, request: HttpRequest) -> Result<HttpResponse, OAuth2Error> {
         log::debug!("Request Url: {}", request.uri());
         log::debug!("Request Header: {:?}", request.headers());

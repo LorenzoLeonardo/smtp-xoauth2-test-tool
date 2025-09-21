@@ -240,6 +240,12 @@ impl From<http::Error> for OAuth2Error {
     }
 }
 
+impl From<strum::ParseError> for OAuth2Error {
+    fn from(e: strum::ParseError) -> Self {
+        OAuth2Error::new(ErrorCodes::ParseError, e.to_string())
+    }
+}
+
 impl std::fmt::Display for OAuth2Error {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OAuth2Error")

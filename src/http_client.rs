@@ -1,7 +1,4 @@
-#[allow(dead_code)]
 pub mod curl;
-
-#[allow(dead_code)]
 pub mod reqwest;
 
 use std::pin::Pin;

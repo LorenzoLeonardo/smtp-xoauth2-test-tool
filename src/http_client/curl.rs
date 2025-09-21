@@ -2,18 +2,20 @@ use curl_http_client::{collector::Collector, dep::async_curl::CurlActor, http_cl
 
 use crate::error::OAuth2Error;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub struct Curl {
     pub actor_handle: CurlActor<Collector>,
 }
 
-impl Curl {
-    pub fn new() -> Self {
+impl Default for Curl {
+    fn default() -> Self {
         Self {
             actor_handle: CurlActor::new(),
         }
     }
+}
 
+impl Curl {
     pub async fn send(
         &self,
         request: oauth2::HttpRequest,
