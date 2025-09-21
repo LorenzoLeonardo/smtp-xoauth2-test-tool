@@ -14,6 +14,7 @@ use crate::{error::OAuth2Error, http_client::curl::Curl};
 pub struct ActualInterface {
     curl: Curl,
     token_path: PathBuf,
+    provider_path: PathBuf,
 }
 
 impl ActualInterface {
@@ -23,9 +24,12 @@ impl ActualInterface {
         token_path = token_path.join("token");
         fs::create_dir_all(token_path.as_path()).unwrap();
 
+        let mut provider_path = std::env::current_exe().unwrap_or(PathBuf::from("."));
+        provider_path = provider_path.join("endpoints");
         Self {
             curl: Curl::new(),
             token_path,
+            provider_path,
         }
     }
 }
@@ -35,22 +39,34 @@ impl Extio for ActualInterface {
     type Error = OAuth2Error;
 
     fn read_file(&self, path: &Path) -> Result<Vec<u8>, Self::Error> {
-        let input_path = self.token_path.join(path);
-        let result = fs::read(input_path)?;
+        let result = fs::read(path)?;
         Ok(result)
     }
     fn write_file(&self, path: &Path, data: &[u8]) -> Result<(), Self::Error> {
-        let input_path = self.token_path.join(path);
-        let mut file = File::create(input_path)?;
+        let mut file = File::create(path)?;
         file.write_all(data)?;
         Ok(())
     }
     fn delete_file(&self, path: &Path) -> Result<(), Self::Error> {
-        let input_path = self.token_path.join(path);
-        fs::remove_file(input_path)?;
+        fs::remove_file(path)?;
         Ok(())
     }
     async fn http_request(&self, req: Request<Vec<u8>>) -> Result<Response<Vec<u8>>, Self::Error> {
         self.curl.send(req).await
+    }
+}
+
+pub trait ExtioExtended: Extio {
+    fn token_path(&self) -> &PathBuf;
+    fn provider_path(&self) -> &PathBuf;
+}
+
+impl ExtioExtended for ActualInterface {
+    fn token_path(&self) -> &PathBuf {
+        &self.token_path
+    }
+
+    fn provider_path(&self) -> &PathBuf {
+        &self.provider_path
     }
 }

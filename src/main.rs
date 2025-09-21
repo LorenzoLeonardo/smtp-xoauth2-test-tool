@@ -100,7 +100,9 @@ fn check_args(args: &[String]) -> OAuth2Result<()> {
 async fn main() -> OAuth2Result<()> {
     let args: Vec<String> = env::args().collect();
     check_args(&args)?;
-    let provider: Provider = Provider::get_provider(&args)?;
+
+    let interface = ActualInterface::new();
+    let provider: Provider = Provider::get_provider(&args, &interface)?;
     let client_secret = match args[ParamIndex::ClientSecret as usize].as_str() {
         "None" => None,
         _ => Some(ClientSecret::new(
@@ -119,7 +121,6 @@ async fn main() -> OAuth2Result<()> {
     let version = env!("CARGO_PKG_VERSION");
     log::info!("SMTP Test Tool v{version} has started...");
 
-    let interface = ActualInterface::new();
     let token =
         match OAuth2TokenGrantFlow::from(args[ParamIndex::TokenGrantType as usize].to_string())? {
             OAuth2TokenGrantFlow::AuthorizationCodeGrant => {
