@@ -2,7 +2,7 @@ use curl_http_client::{collector::Collector, dep::async_curl::CurlActor, http_cl
 
 use crate::error::OAuth2Error;
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Curl {
     pub actor_handle: CurlActor<Collector>,
 }
@@ -37,11 +37,5 @@ impl Curl {
             String::from_utf8_lossy(response.body())
         );
         Ok(response)
-    }
-}
-
-impl Default for Curl {
-    fn default() -> Self {
-        Self::new()
     }
 }
