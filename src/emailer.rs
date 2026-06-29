@@ -2,7 +2,7 @@ use mail_send::{Credentials, SmtpClientBuilder, mail_builder::MessageBuilder};
 use oauth2::AccessToken;
 
 use crate::{
-    error::OAuth2Result,
+    error::{ErrorCodes, OAuth2Error, OAuth2Result},
     provider::{SmtpHostName, SmtpPort},
 };
 
@@ -47,6 +47,7 @@ impl Emailer {
             Credentials::new_xoauth2(sender_email.as_str(), access_token.secret().as_str());
         log::info!("Authenticating SMTP XOAUTH2 Credentials....");
         let email_connect = SmtpClientBuilder::new(self.smtp_server.0.as_ref(), self.smtp_port.0)
+            .map_err(|e| OAuth2Error::new(ErrorCodes::Emailer, e))?
             .implicit_tls(false)
             .credentials(credentials)
             .connect()
