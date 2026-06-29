@@ -66,6 +66,8 @@ pub enum ErrorCodes {
     DiscoveryError,
     ClaimsVerificationError,
     ReqwestError,
+    TokioJoin,
+    Emailer,
 }
 
 impl From<String> for ErrorCodes {
@@ -177,6 +179,9 @@ where
                 }
                 CurlError::TokioSend(err) => {
                     OAuth2Error::new(ErrorCodes::TokioSend, err.to_string())
+                }
+                CurlError::JoinError(err) => {
+                    OAuth2Error::new(ErrorCodes::TokioJoin, err.to_string())
                 }
             },
             curl_http_client::error::Error::Other(err) => {
